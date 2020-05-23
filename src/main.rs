@@ -2,12 +2,6 @@
 #![no_main]
 
 const ADC_FULLSCALE: u32 = 4095; // 12 bit ADC
-/// Threshold at which we start displaying the temperature
-const TEMP_ON_THRESHOLD: f32 = 100.;
-/// Threshold at which we turn the display back off as the oven cools off
-const TEMP_OFF_THRESHOLD: f32 = 200.;
-/// Some hysteresis to avoid thrash
-const TEMP_HYSTERESIS: f32 = 10.;
 /// Using VDDA / 2 with digital gain 1/2, our reference is ~3.3v
 const ADC_REF_VOLTAGE: f32 = 3.3;
 
@@ -17,7 +11,16 @@ const DELAY_RUNNING_MS: u32 = 1_000; // 1 second
 
 extern crate cortex_m;
 extern crate panic_halt; // panic handler
+
 mod ht16k33;
+mod oventemp;
+
+#[cfg(feature = "usbserial")]
+mod usbserial;
+
+use oventemp::{OvenTemp, OvenTempState};
+#[cfg(feature = "usbserial")]
+use usbserial::USBSerial;
 
 use feather_m0 as hal;
 use hal::adc::Adc;
@@ -28,120 +31,11 @@ use hal::pac::adc::{inputctrl, refctrl};
 use hal::pac::{CorePeripherals, Peripherals};
 use hal::prelude::*;
 
-enum OvenTempStates {
-    Off,
-    HeatingUp,
-    AtTemp,
-    CoolingDown,
-}
-
-struct OvenTemp {
-    state: OvenTempStates,
-    temp_previous: f32,
-}
-
-impl OvenTemp {
-    fn new() -> OvenTemp {
-        OvenTemp {
-            state: OvenTempStates::AtTemp,
-            temp_previous: 0.,
-        }
-    }
-
-    fn check_transition<I2C, CommE>(
-        &mut self,
-        temp: f32,
-        i2c: &mut I2C,
-        display: &mut ht16k33::HT16K33,
-    ) -> Result<(), CommE>
-    where
-        I2C: embedded_hal::blocking::i2c::Write<Error = CommE>,
-    {
-        // Potentially move to a new state
-        let new_state_opt = match &mut self.state {
-            OvenTempStates::Off => {
-                if temp >= TEMP_ON_THRESHOLD + TEMP_HYSTERESIS {
-                    Some(OvenTempStates::HeatingUp)
-                } else {
-                    None
-                }
-            }
-            OvenTempStates::HeatingUp => {
-                if temp >= TEMP_OFF_THRESHOLD + TEMP_HYSTERESIS {
-                    Some(OvenTempStates::AtTemp)
-                } else if temp >= TEMP_ON_THRESHOLD - TEMP_HYSTERESIS {
-                    Some(OvenTempStates::Off)
-                } else {
-                    None
-                }
-            }
-            OvenTempStates::AtTemp => {
-                if temp <= TEMP_OFF_THRESHOLD - TEMP_HYSTERESIS {
-                    Some(OvenTempStates::CoolingDown)
-                } else {
-                    None
-                }
-            }
-            OvenTempStates::CoolingDown => {
-                if temp <= TEMP_ON_THRESHOLD - TEMP_HYSTERESIS {
-                    Some(OvenTempStates::Off)
-                } else {
-                    None
-                }
-            }
-        };
-
-        // If we're transitioning to a state with no display, turn it off!
-        let mut result: Result<(), CommE> = Ok(());
-        if let Some(new_state) = new_state_opt {
-            match new_state {
-                OvenTempStates::Off | OvenTempStates::CoolingDown => {
-                    display.clear();
-                    result = display.write_display(i2c);
-                }
-                _ => (),
-            };
-            self.state = new_state;
-        }
-        result
-    }
-
-    fn run<I2C, CommE>(
-        &mut self,
-        temp: f32,
-        i2c: &mut I2C,
-        display: &mut ht16k33::HT16K33,
-        delay: &mut Delay,
-    ) -> Result<(), CommE>
-    where
-        I2C: embedded_hal::blocking::i2c::Write<Error = CommE>,
-    {
-        self.temp_previous = temp;
-        match &mut self.state {
-            OvenTempStates::Off => {
-                delay.delay_ms(DELAY_OFF_MS);
-                Ok(())
-            }
-            OvenTempStates::CoolingDown => {
-                // TODO: sleep for a long time, but not as long as Off
-                delay.delay_ms(DELAY_COOLDOWN_MS);
-                Ok(())
-            }
-            _ => {
-                // All other states we're on and displaying the temp
-                let ret = display_temp(temp, i2c, display);
-                delay.delay_ms(DELAY_RUNNING_MS);
-                ret
-            }
-        }
-    }
-}
-
 #[entry]
 fn main() -> ! {
-    // cortex_m::Peripherals::take().unwrap()
+    #[allow(unused_mut)] // Only used when usbserial is enabled
+    let mut core = CorePeripherals::take().unwrap();
     let mut peripherals = Peripherals::take().unwrap();
-    let core = CorePeripherals::take().unwrap();
     let mut clocks = GenericClockController::with_external_32kosc(
         peripherals.GCLK,
         &mut peripherals.PM,
@@ -150,6 +44,17 @@ fn main() -> ! {
     );
 
     let mut pins = hal::Pins::new(peripherals.PORT);
+
+    #[cfg(feature = "usbserial")]
+    USBSerial::init(
+        &mut peripherals.PM,
+        peripherals.USB,
+        &mut core,
+        &mut clocks,
+        pins.usb_dm,
+        pins.usb_dp,
+        &mut pins.port,
+    );
 
     let mut i2c = hal::i2c_master(
         &mut clocks,
@@ -173,7 +78,6 @@ fn main() -> ! {
     };
     display.clear();
     display.write_display(&mut i2c).unwrap();
-    delay.delay_ms(500u32);
     display.write_digit_ascii(0, ' ', false);
     display.write_digit_ascii(1, 'H', false);
     display.write_digit_ascii(2, 'I', false);
@@ -190,9 +94,10 @@ fn main() -> ! {
 
     red_led.set_low().unwrap();
 
-    let mut state = OvenTemp::new();
+    let mut oven_state = OvenTemp::new();
 
     loop {
+        serial_write("Loop!\r\n");
         let therm_reading: u16 = adc.read(&mut therm_out).unwrap();
 
         let therm_voltage: f32 =
@@ -200,15 +105,29 @@ fn main() -> ! {
         let temp_c: f32 = (therm_voltage - 1.25) / 0.005;
         let temp: f32 = temp_c * (9. / 5.) + 32.;
 
-        state.run(temp, &mut i2c, &mut display, &mut delay).unwrap();
-        if let Err(_) = state.check_transition(temp, &mut i2c, &mut display) {
+        if run(oven_state.state, temp, &mut i2c, &mut display, &mut delay).is_err() {
             loop {
                 error(&mut red_led, &mut delay);
+            }
+        }
+
+        if let Some(new_state) = oven_state.check_transition(temp) {
+            match new_state {
+                OvenTempState::Off | OvenTempState::CoolingDown => {
+                    display.clear();
+                    if display.write_display(&mut i2c).is_err() {
+                        loop {
+                            error(&mut red_led, &mut delay);
+                        }
+                    }
+                }
+                _ => (),
             }
         }
     }
 }
 
+/// Display the given temperature on the display
 fn display_temp<I2C, CommE>(
     temp_f: f32,
     i2c: &mut I2C,
@@ -245,6 +164,11 @@ where
     display.write_display(i2c)
 }
 
+/// Blinks the red LED indicating an error
+///
+/// # Parameters
+/// * red_led: The LED pin to blink
+/// * delay: The `Delay` instance to wait
 fn error<PIN>(red_led: &mut PIN, delay: &mut hal::delay::Delay)
 where
     PIN: embedded_hal::digital::v2::OutputPin<Error = ()>,
@@ -253,4 +177,40 @@ where
     delay.delay_ms(1000u32);
     red_led.set_high().unwrap();
     delay.delay_ms(1000u32);
+}
+
+/// Run the main state display/sleep logic
+pub fn run<I2C, CommError>(
+    state: OvenTempState,
+    temp: f32,
+    i2c: &mut I2C,
+    display: &mut ht16k33::HT16K33,
+    delay: &mut Delay,
+) -> Result<(), CommError>
+where
+    I2C: embedded_hal::blocking::i2c::Write<Error = CommError>,
+{
+    match state {
+        OvenTempState::Off => {
+            delay.delay_ms(DELAY_OFF_MS);
+            Ok(())
+        }
+        OvenTempState::CoolingDown => {
+            // TODO: sleep for a long time, but not as long as Off
+            delay.delay_ms(DELAY_COOLDOWN_MS);
+            Ok(())
+        }
+        _ => {
+            // All other states we're on and displaying the temp
+            let ret = display_temp(temp, i2c, display);
+            delay.delay_ms(DELAY_RUNNING_MS);
+            ret
+        }
+    }
+}
+
+#[allow(unused_variables)]
+pub fn serial_write(message: &str) {
+    #[cfg(feature = "usbserial")]
+    USBSerial::write_to_usb(message);
 }

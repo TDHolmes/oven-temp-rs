@@ -158,7 +158,7 @@ const HT16K33_CMD_BRIGHTNESS: u8 = 0xE0;
 // const BIN: u8 = 2;
 // const BYTE: u8 = 0;
 
-const ALPHA_POINT_MASK: u16 = (1 << 14);
+const ALPHA_POINT_MASK: u16 = 1 << 14;
 
 pub struct HT16K33 {
     i2c_addr: u8,
