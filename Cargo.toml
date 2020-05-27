@@ -6,21 +6,24 @@ version = "0.1.0"
 
 [dependencies]
 embedded-hal = "0.2"
-feather_m0 = {features = ["unproven","usb"], git = "https://github.com/atsamd-rs/atsamd"}
-# feather_m0 = {path = "/Users/tholmes/projects/rust/atsamd/boards/feather_m0", features = ["unproven"]}
+feather_m0 = {features = ["unproven", "usb"], git = "https://github.com/atsamd-rs/atsamd"}
 cortex-m = "0.6.2"
-cortex-m-rt = "0.6.12"
+cortex-m-rt = "~0.6"  # for interrupts
 panic-halt = {version = "0.2.0"}
 panic-semihosting = {version = "0.5"}
-cortex-m-semihosting = "0.3"
-usb-device = "~0.2"
-usbd-serial = "~0.1"
+cortex-m-semihosting = {version = "0.3"}
+
+usb-device = {version = "~0.2", optional = true}
+usbd-serial = {version = "~0.1", optional = true}
+heapless = {version = "~0.5", optional = true}
+ufmt = {version = "~0.1", optional = true}
+ufmt-utils = {version = "~0.1", optional = true}
 
 [features]
 # no features by default
 default = []
 # usbserial feature doesn't depend on any others
-usbserial = []
+usbserial = ["heapless", "ufmt", "ufmt-utils", "usb-device", "usbd-serial"]
 
 # this lets you use `cargo fix`!
 [[bin]]

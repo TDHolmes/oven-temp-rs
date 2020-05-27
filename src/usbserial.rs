@@ -5,7 +5,7 @@ extern crate usbd_serial;
 use cortex_m::peripheral::NVIC;
 use hal::clock::GenericClockController;
 use hal::gpio::{Floating, Input, Port};
-use hal::pac::{interrupt, CorePeripherals, PM, USB};
+use hal::pac::{interrupt, PM, USB};
 use hal::usb::UsbBus;
 use usb_device::bus::UsbBusAllocator;
 use usb_device::prelude::*;
@@ -33,7 +33,7 @@ impl USBSerial {
     pub fn init(
         pm_perph: &mut PM,
         usb_perph: USB,
-        core: &mut CorePeripherals,
+        nvic: &mut hal::pac::NVIC,
         clocks: &mut GenericClockController,
         dm: hal::gpio::Pa24<Input<Floating>>,
         dp: hal::gpio::Pa25<Input<Floating>>,
@@ -44,20 +44,21 @@ impl USBSerial {
                 BUS_ALLOCATOR = Some(hal::usb_allocator(
                     usb_perph, clocks, pm_perph, dm, dp, port,
                 ));
+                let bus_allocator = BUS_ALLOCATOR.as_ref().unwrap();
+
+                // Initialize our USBSerial singlton
                 USB_SERIAL = Some(USBSerial {
-                    usb_bus: UsbDeviceBuilder::new(
-                        BUS_ALLOCATOR.as_ref().unwrap(),
-                        UsbVidPid(0x16c0, 0x27dd),
-                    )
-                    .manufacturer("Fake company")
-                    .product("Serial port")
-                    .serial_number("TEST")
-                    .device_class(USB_CLASS_CDC)
-                    .build(),
-                    usb_serial: SerialPort::new(BUS_ALLOCATOR.as_ref().unwrap()),
+                    usb_serial: SerialPort::new(bus_allocator), /* This must initialize first! */
+                    usb_bus: UsbDeviceBuilder::new(bus_allocator, UsbVidPid(0x16c0, 0x27dd))
+                        .manufacturer("Fake company")
+                        .product("Serial port")
+                        .serial_number("TEST")
+                        .device_class(USB_CLASS_CDC)
+                        .build(),
                 });
 
-                core.NVIC.set_priority(interrupt::USB, 1);
+                // enable interrupts
+                nvic.set_priority(interrupt::USB, 1);
                 NVIC::unmask(interrupt::USB);
             }
         }
@@ -67,14 +68,16 @@ impl USBSerial {
     ///
     /// # Arguments
     /// * message: The message to write to the USB port
-    pub fn write_to_usb(message: &str) {
+    ///
+    /// # Returns
+    /// number of bytes successfully written
+    pub fn write_to_usb(message: &str) -> usize {
+        let message_bytes = message.as_bytes();
         unsafe {
-            USB_SERIAL
-                .as_mut()
-                .unwrap()
-                .usb_serial
-                .write(message.as_bytes())
-                .unwrap();
+            match USB_SERIAL.as_mut().unwrap().usb_serial.write(message_bytes) {
+                Ok(count) => count,
+                Err(_) => 0,
+            }
         }
     }
 
@@ -90,12 +93,13 @@ impl USBSerial {
             let usbserial: &mut USBSerial = USB_SERIAL.as_mut().unwrap();
             usbserial.usb_bus.poll(&mut [&mut usbserial.usb_serial]);
 
-            if let Ok(bytes_read) = usbserial.usb_serial.read(read_buffer) {
-                usbserial
-                    .usb_serial
-                    .write(&read_buffer[0..bytes_read])
-                    .unwrap();
-                return bytes_read;
+            if let Ok(_bytes_read) = usbserial.usb_serial.read(read_buffer) {
+                // We can panic if we write in interrupt & main context! No need to echo chars, so don't write here
+                // usbserial
+                //     .usb_serial
+                //     .write(&read_buffer[0..bytes_read])
+                //     .unwrap();
+                // return bytes_read;
             };
         };
         0

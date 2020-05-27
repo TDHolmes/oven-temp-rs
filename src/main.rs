@@ -9,12 +9,20 @@ const DELAY_OFF_MS: u32 = 1_000; // 60_000; 60 seconds
 const DELAY_COOLDOWN_MS: u32 = 1_000; // 15_000; 15 seconds
 const DELAY_RUNNING_MS: u32 = 1_000; // 1 second
 
-extern crate cortex_m;
-extern crate panic_halt; // panic handler
+// panic handler options
+// extern crate panic_halt;
+// extern crate panic_ramdump;
+extern crate panic_semihosting;
+
+#[cfg(feature = "usbserial")]
+extern crate heapless;
+#[cfg(feature = "usbserial")]
+extern crate ufmt;
+#[cfg(feature = "usbserial")]
+extern crate ufmt_utils;
 
 mod ht16k33;
 mod oventemp;
-
 #[cfg(feature = "usbserial")]
 mod usbserial;
 
@@ -27,9 +35,26 @@ use hal::adc::Adc;
 use hal::clock::GenericClockController;
 use hal::delay::Delay;
 use hal::entry;
-use hal::pac::adc::{inputctrl, refctrl};
-use hal::pac::{CorePeripherals, Peripherals};
+use hal::pac::{adc, CorePeripherals, Peripherals};
 use hal::prelude::*;
+
+/// Writes the given message out over USB serial.
+macro_rules! serial_write {
+    ($($tt:tt)*) => {{
+        #[cfg(feature = "usbserial")]
+        {
+            use heapless::consts::*;
+            use heapless::String;
+            use ufmt::uwrite;
+            let mut s: String<U63> = String::new();
+            uwrite!(
+                ufmt_utils::WriteAdapter(&mut s), $($tt)*
+            )
+            .unwrap();
+            USBSerial::write_to_usb(s.as_str());
+        }
+    }};
+}
 
 #[entry]
 fn main() -> ! {
@@ -49,7 +74,7 @@ fn main() -> ! {
     USBSerial::init(
         &mut peripherals.PM,
         peripherals.USB,
-        &mut core,
+        &mut core.NVIC,
         &mut clocks,
         pins.usb_dm,
         pins.usb_dp,
@@ -88,8 +113,8 @@ fn main() -> ! {
     display.write_display(&mut i2c).unwrap();
 
     let mut adc = Adc::adc(peripherals.ADC, &mut peripherals.PM, &mut clocks);
-    adc.gain(inputctrl::GAIN_A::DIV2);
-    adc.reference(refctrl::REFSEL_A::INTVCC1);
+    adc.gain(adc::inputctrl::GAIN_A::DIV2);
+    adc.reference(adc::refctrl::REFSEL_A::INTVCC1);
     let mut therm_out = pins.a5.into_function_b(&mut pins.port);
 
     red_led.set_low().unwrap();
@@ -97,13 +122,13 @@ fn main() -> ! {
     let mut oven_state = OvenTemp::new();
 
     loop {
-        serial_write("Loop!\r\n");
         let therm_reading: u16 = adc.read(&mut therm_out).unwrap();
-
         let therm_voltage: f32 =
             (therm_reading as f32 / ADC_FULLSCALE as f32) * ADC_REF_VOLTAGE as f32;
         let temp_c: f32 = (therm_voltage - 1.25) / 0.005;
         let temp: f32 = temp_c * (9. / 5.) + 32.;
+
+        serial_write!("reading: {}.{}\r\n", temp as u32, (temp * 10.) as u32 % 10);
 
         if run(oven_state.state, temp, &mut i2c, &mut display, &mut delay).is_err() {
             loop {
@@ -207,10 +232,4 @@ where
             ret
         }
     }
-}
-
-#[allow(unused_variables)]
-pub fn serial_write(message: &str) {
-    #[cfg(feature = "usbserial")]
-    USBSerial::write_to_usb(message);
 }
