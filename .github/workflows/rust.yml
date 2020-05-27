@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
-    - name: Build w USB
-      run: cargo build --verbose --features usb
+    - name: Build w USB feature
+      run: cargo build --verbose --features usbserial
     - name: Run tests
       run: cargo test --verbose
