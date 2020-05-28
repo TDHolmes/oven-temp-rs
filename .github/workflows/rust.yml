@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Setup
+      run: rustup target add thumbv6m-none-eabi
     - name: Build
       run: cargo build --verbose
     - name: Build w USB feature
