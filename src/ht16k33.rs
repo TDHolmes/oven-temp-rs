@@ -217,11 +217,6 @@ impl HT16K33 {
         }
     }
 
-    // TODO: Can this be done with function overloading or whatever it is in rust?
-    // pub fn write_digit_raw(&mut self, n: u8, bitmask: u16) {
-    //     self.display_buffer[n as usize] = bitmask;
-    // }
-
     pub fn write_digit_value(&mut self, n: u8, number: u8, point: bool) {
         self.display_buffer[n as usize] = ALPHA_FONT_TABLE[(number + 0x30) as usize];
         if point {
