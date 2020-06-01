@@ -10,9 +10,7 @@ feather_m0 = {features = ["unproven", "usb"], git = "https://github.com/atsamd-r
 embedded-hal = "0.2"
 cortex-m = "0.6.2"
 cortex-m-rt = "0.6"  # for interrupts
-panic-halt = {version = "0.2.0"}
 panic-semihosting = {version = "0.5"}
-cortex-m-semihosting = {version = "0.3"}
 
 # dependencies for usb serial printing
 usb-device = {version = "0.2", optional = true}

@@ -9,13 +9,9 @@ const DELAY_OFF_MS: u32 = 1_000; // 60_000; 60 seconds
 const DELAY_COOLDOWN_MS: u32 = 1_000; // 15_000; 15 seconds
 const DELAY_RUNNING_MS: u32 = 1_000; // 1 second
 
-// panic handler options
-// extern crate panic_halt;
-// extern crate panic_ramdump;
-extern crate panic_semihosting;
-
 #[cfg(feature = "usbserial")]
 extern crate heapless;
+extern crate panic_semihosting;
 #[cfg(feature = "usbserial")]
 extern crate ufmt;
 #[cfg(feature = "usbserial")]
