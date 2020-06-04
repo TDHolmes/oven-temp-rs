@@ -38,22 +38,9 @@ use hal::prelude::*;
 use hal::sleeping_delay::SleepingDelay;
 use hal::timer;
 
-/// Writes the given message out over USB serial.
+#[cfg(not(feature = "usbserial"))]
 macro_rules! serial_write {
-    ($($tt:tt)*) => {{
-        #[cfg(feature = "usbserial")]
-        {
-            use heapless::consts::*;
-            use heapless::String;
-            use ufmt::uwrite;
-            let mut s: String<U63> = String::new();
-            uwrite!(
-                ufmt_utils::WriteAdapter(&mut s), $($tt)*
-            )
-            .unwrap();
-            USBSerial::write_to_usb(s.as_str());
-        }
-    }};
+    ($($tt:tt)*) => {{}};
 }
 
 static mut INTERRUPT_FIRED: Option<atomic::AtomicBool> = None;

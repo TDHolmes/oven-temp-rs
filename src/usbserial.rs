@@ -111,3 +111,22 @@ fn USB() {
     let mut read_buf: [u8; 64] = [0u8; 64];
     USBSerial::poll_usb(&mut read_buf);
 }
+
+/// Writes the given message out over USB serial.
+#[macro_export]
+macro_rules! serial_write {
+    ($($tt:tt)*) => {{
+        #[cfg(feature = "usbserial")]
+        {
+            use heapless::consts::*;
+            use heapless::String;
+            use ufmt::uwrite;
+            let mut s: String<U63> = String::new();
+            uwrite!(
+                ufmt_utils::WriteAdapter(&mut s), $($tt)*
+            )
+            .unwrap();
+            USBSerial::write_to_usb(s.as_str());
+        }
+    }};
+}
