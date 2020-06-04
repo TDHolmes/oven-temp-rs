@@ -17,10 +17,14 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Setup
-      run: rustup target add thumbv6m-none-eabi
+      run: rustup target add thumbv6m-none-eabi && rustup component add clippy
     - name: Build
       run: cargo build --verbose
     - name: Build w USB feature
       run: cargo build --verbose --features usbserial
     - name: Run tests
       run: cargo test --verbose
+    - uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --all-features
