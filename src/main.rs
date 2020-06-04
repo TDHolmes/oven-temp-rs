@@ -26,13 +26,17 @@ use oventemp::{OvenTemp, OvenTempState};
 #[cfg(feature = "usbserial")]
 use usbserial::USBSerial;
 
+use core::sync::atomic;
+use cortex_m::peripheral::NVIC;
 use feather_m0 as hal;
 use hal::adc::Adc;
 use hal::clock::GenericClockController;
 use hal::delay::Delay;
 use hal::entry;
-use hal::pac::{adc, CorePeripherals, Peripherals};
+use hal::pac::{adc, interrupt, CorePeripherals, Peripherals, TC4};
 use hal::prelude::*;
+use hal::sleeping_delay::SleepingDelay;
+use hal::timer;
 
 /// Writes the given message out over USB serial.
 macro_rules! serial_write {
@@ -52,6 +56,8 @@ macro_rules! serial_write {
     }};
 }
 
+static mut INTERRUPT_FIRED: Option<atomic::AtomicBool> = None;
+
 #[entry]
 fn main() -> ! {
     #[allow(unused_mut)] // Only used when usbserial is enabled
@@ -65,6 +71,10 @@ fn main() -> ! {
     );
 
     let mut pins = hal::Pins::new(peripherals.PORT);
+    let interrupt_fired = unsafe {
+        INTERRUPT_FIRED = Some(atomic::AtomicBool::default());
+        INTERRUPT_FIRED.as_ref().unwrap()
+    };
 
     #[cfg(feature = "usbserial")]
     USBSerial::init(
@@ -97,6 +107,7 @@ fn main() -> ! {
             error(&mut red_led, &mut delay);
         },
     };
+
     display.clear();
     display.write_display(&mut i2c).unwrap();
     display.write_digit_ascii(0, ' ', false);
@@ -107,6 +118,18 @@ fn main() -> ! {
     delay.delay_ms(500u32);
     display.clear();
     display.write_display(&mut i2c).unwrap();
+
+    // Get a clock & make a sleeping delay object
+    let gclk0 = clocks.gclk0();
+    let tc45 = &clocks.tc4_tc5(&gclk0).unwrap();
+    let timer = timer::TimerCounter::tc4_(tc45, peripherals.TC4, &mut peripherals.PM);
+    let mut sleeping_delay = SleepingDelay::new(timer, interrupt_fired);
+
+    unsafe {
+        // enable interrupts
+        core.NVIC.set_priority(interrupt::TC4, 2);
+        NVIC::unmask(interrupt::TC4);
+    }
 
     let mut adc = Adc::adc(peripherals.ADC, &mut peripherals.PM, &mut clocks);
     adc.gain(adc::inputctrl::GAIN_A::DIV2);
@@ -126,7 +149,15 @@ fn main() -> ! {
 
         serial_write!("reading: {}.{}\r\n", temp as u32, (temp * 10.) as u32 % 10);
 
-        if run(oven_state.state, temp, &mut i2c, &mut display, &mut delay).is_err() {
+        if run(
+            oven_state.state,
+            temp,
+            &mut i2c,
+            &mut display,
+            &mut sleeping_delay,
+        )
+        .is_err()
+        {
             loop {
                 error(&mut red_led, &mut delay);
             }
@@ -206,26 +237,46 @@ pub fn run<I2C, CommError>(
     temp: f32,
     i2c: &mut I2C,
     display: &mut ht16k33::HT16K33,
-    delay: &mut Delay,
+    delay: &mut SleepingDelay<timer::TimerCounter4>,
 ) -> Result<(), CommError>
 where
     I2C: embedded_hal::blocking::i2c::Write<Error = CommError>,
 {
     match state {
         OvenTempState::Off => {
+            serial_write!("Delaying for {} ms\r\n", DELAY_OFF_MS);
             delay.delay_ms(DELAY_OFF_MS);
             Ok(())
         }
         OvenTempState::CoolingDown => {
             // TODO: sleep for a long time, but not as long as Off
+            serial_write!("Delaying for {} ms\r\n", DELAY_COOLDOWN_MS);
             delay.delay_ms(DELAY_COOLDOWN_MS);
             Ok(())
         }
         _ => {
             // All other states we're on and displaying the temp
             let ret = display_temp(temp, i2c, display);
+            serial_write!("Delaying for {} ms\r\n", DELAY_RUNNING_MS);
             delay.delay_ms(DELAY_RUNNING_MS);
             ret
         }
+    }
+}
+
+#[interrupt]
+fn TC4() {
+    unsafe {
+        // Let the sleepingtimer know that the interrupt fired, and clear it
+        INTERRUPT_FIRED
+            .as_ref()
+            .unwrap()
+            .store(true, atomic::Ordering::Relaxed);
+        TC4::ptr()
+            .as_ref()
+            .unwrap()
+            .count16()
+            .intflag
+            .modify(|_, w| w.ovf().set_bit());
     }
 }
