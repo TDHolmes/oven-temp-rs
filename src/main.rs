@@ -204,19 +204,21 @@ where
     display.write_display(i2c)
 }
 
-/// Blinks the red LED indicating an error
+/// Blinks the red LED indicating an error forever
 ///
 /// # Parameters
 /// * `red_led`: The LED pin to blink
 /// * `delay`: The `Delay` instance to wait
-fn error<PIN>(red_led: &mut PIN, delay: &mut hal::delay::Delay)
+fn error<PIN>(red_led: &mut PIN, delay: &mut hal::delay::Delay) -> !
 where
     PIN: embedded_hal::digital::v2::OutputPin<Error = ()>,
 {
-    red_led.set_low().unwrap();
-    delay.delay_ms(1000_u32);
-    red_led.set_high().unwrap();
-    delay.delay_ms(1000_u32);
+    loop {
+        red_led.set_low().unwrap();
+        delay.delay_ms(1000_u32);
+        red_led.set_high().unwrap();
+        delay.delay_ms(1000_u32);
+    }
 }
 
 /// Run the main state display/sleep logic
