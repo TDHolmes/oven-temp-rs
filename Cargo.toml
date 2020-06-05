@@ -3,6 +3,12 @@ authors = ["Tyler Holmes <tyler@holmesengineering.com>"]
 edition = "2018"
 name = "oven-temp-rs"
 version = "0.1.0"
+description = "Oven temperature monitor and display for dumb ovens that don't have digital temp readout. Implemented in embedded rust."
+repository = "https://github.com/TDHolmes/oven-temp-rs"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+keywords = ["feather_m0", "embedded", "thermocouple", "AD8495", "HT16K33"]
+categories = ["No standard library"]
 
 [dependencies]
 feather_m0 = {features = ["unproven", "usb"], git = "https://github.com/TDHolmes/atsamd", branch = "sleeping_delay"}
