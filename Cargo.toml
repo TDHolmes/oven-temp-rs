@@ -45,4 +45,4 @@ opt-level = "s"
 [profile.dev]  # Doesn't fit on chip otherwise
 codegen-units = 1   # better optimizations
 debug = true        # symbols are nice and they don't increase the size on Flash
-opt-level = 1
+# opt-level = 1

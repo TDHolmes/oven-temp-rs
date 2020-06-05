@@ -43,8 +43,10 @@ macro_rules! serial_write {
     ($($tt:tt)*) => {{}};
 }
 
-static mut INTERRUPT_FIRED: Option<atomic::AtomicBool> = None;
+/// boolean indicating if our timer interrupt has fired
+static mut INTERRUPT_FIRED: atomic::AtomicBool = atomic::AtomicBool::new(false);
 
+/// Main function, controlling all of our logic
 #[entry]
 fn main() -> ! {
     #[allow(unused_mut)] // Only used when usbserial is enabled
@@ -58,10 +60,7 @@ fn main() -> ! {
     );
 
     let mut pins = hal::Pins::new(peripherals.PORT);
-    let interrupt_fired = unsafe {
-        INTERRUPT_FIRED = Some(atomic::AtomicBool::default());
-        INTERRUPT_FIRED.as_ref().unwrap()
-    };
+    let interrupt_fired = unsafe { &INTERRUPT_FIRED };
 
     #[cfg(feature = "usbserial")]
     USBSerial::init(
@@ -102,7 +101,7 @@ fn main() -> ! {
     display.write_digit_ascii(2, 'I', false);
     display.write_digit_ascii(3, ' ', false);
     display.write_display(&mut i2c).unwrap();
-    delay.delay_ms(500u32);
+    delay.delay_ms(500_u32);
     display.clear();
     display.write_display(&mut i2c).unwrap();
 
@@ -176,12 +175,7 @@ where
     I2C: embedded_hal::blocking::i2c::Write<Error = CommE>,
 {
     display.clear();
-    if temp_f >= 1000. || temp_f < 10. {
-        display.write_digit_ascii(0, 'E', false);
-        display.write_digit_ascii(1, 'R', false);
-        display.write_digit_ascii(2, 'R', false);
-        display.write_digit_ascii(3, '!', false);
-    } else if temp_f < 100. {
+    if temp_f >= 10. && temp_f < 100. {
         let tens_place: u8 = (temp_f / 10.) as u8;
         let ones_place: u8 = (temp_f % 10.) as u8;
         let tenths_place: u8 = ((temp_f * 10.) % 10.) as u8;
@@ -190,7 +184,7 @@ where
         display.write_digit_value(1, ones_place, true);
         display.write_digit_value(2, tenths_place, false);
         display.write_digit_value(3, hundredths_place, false);
-    } else if temp_f < 1000. {
+    } else if temp_f >= 100. && temp_f < 1000. {
         let hundreds_place: u8 = (temp_f / 100.) as u8;
         let tens_place: u8 = ((temp_f / 10.) % 10.) as u8;
         let ones_place: u8 = (temp_f % 10.) as u8;
@@ -199,23 +193,30 @@ where
         display.write_digit_value(1, tens_place, false);
         display.write_digit_value(2, ones_place, true);
         display.write_digit_value(3, tenths_place, false);
+    } else {
+        // Temp < 10 or >= 1000
+        display.write_digit_ascii(0, 'E', false);
+        display.write_digit_ascii(1, 'R', false);
+        display.write_digit_ascii(2, 'R', false);
+        display.write_digit_ascii(3, '!', false);
     }
+
     display.write_display(i2c)
 }
 
 /// Blinks the red LED indicating an error
 ///
 /// # Parameters
-/// * red_led: The LED pin to blink
-/// * delay: The `Delay` instance to wait
+/// * `red_led`: The LED pin to blink
+/// * `delay`: The `Delay` instance to wait
 fn error<PIN>(red_led: &mut PIN, delay: &mut hal::delay::Delay)
 where
     PIN: embedded_hal::digital::v2::OutputPin<Error = ()>,
 {
     red_led.set_low().unwrap();
-    delay.delay_ms(1000u32);
+    delay.delay_ms(1000_u32);
     red_led.set_high().unwrap();
-    delay.delay_ms(1000u32);
+    delay.delay_ms(1000_u32);
 }
 
 /// Run the main state display/sleep logic
@@ -251,14 +252,12 @@ where
     }
 }
 
+/// The sleeping timer interrupt that wakes us up
 #[interrupt]
 fn TC4() {
     unsafe {
         // Let the sleepingtimer know that the interrupt fired, and clear it
-        INTERRUPT_FIRED
-            .as_ref()
-            .unwrap()
-            .store(true, atomic::Ordering::Relaxed);
+        INTERRUPT_FIRED.store(true, atomic::Ordering::Relaxed);
         TC4::ptr()
             .as_ref()
             .unwrap()

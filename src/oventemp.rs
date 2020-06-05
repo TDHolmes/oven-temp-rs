@@ -7,25 +7,37 @@ const TEMP_HYSTERESIS: f32 = 10.;
 
 #[derive(Copy, Clone)]
 pub enum OvenTempState {
+    /// The oven is determined to be off and not running
     Off,
+    /// The oven is heating up and we should start displaying the temperature
     HeatingUp,
+    /// The oven is sufficiently hot enough to start potentially detecting a cool-down
     AtTemp,
+    /// The oven is cooling off and we should stop displaying the temp
     CoolingDown,
 }
 
+/// Structure to keep track of our oven temp state
 pub struct OvenTemp {
+    /// The current state of our oven
     pub state: OvenTempState,
-    temp_previous: f32,
 }
 
 impl OvenTemp {
-    pub fn new() -> OvenTemp {
-        OvenTemp {
+    /// Creates a new OvenTemp object
+    pub const fn new() -> Self {
+        Self {
             state: OvenTempState::AtTemp,
-            temp_previous: 0.,
         }
     }
 
+    /// Checks for state transitions given the new temperature information
+    ///
+    /// # Arguments
+    /// * `temp`: The new temperature reading
+    ///
+    /// # Returns
+    /// the new oven temp state, if a transition occurred
     pub fn check_transition(&mut self, temp: f32) -> Option<OvenTempState> {
         // Potentially move to a new state
         let new_state_opt = match self.state {
@@ -65,7 +77,6 @@ impl OvenTemp {
             self.state = new_state;
         }
 
-        self.temp_previous = temp;
         new_state_opt
     }
 }

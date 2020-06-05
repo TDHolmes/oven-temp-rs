@@ -166,11 +166,11 @@ pub struct HT16K33 {
 }
 
 impl HT16K33 {
-    pub fn init<I2C, CommE>(addr: u8, i2c: &mut I2C) -> Result<HT16K33, CommE>
+    pub fn init<I2C, CommE>(addr: u8, i2c: &mut I2C) -> Result<Self, CommE>
     where
         I2C: embedded_hal::blocking::i2c::Write<Error = CommE>,
     {
-        let mut ht = HT16K33 {
+        let mut ht = Self {
             i2c_addr: addr,
             display_buffer: [0; DISPLAY_BUFFER_SIZE],
         };
@@ -201,12 +201,12 @@ impl HT16K33 {
     where
         I2C: embedded_hal::blocking::i2c::Write<Error = CommE>,
     {
-        let mut b = b;
-        if b > 3 {
-            b = 0; // turn off if not sure
+        let mut bm = b;
+        if bm > 3 {
+            bm = 0; // turn off if not sure
         }
 
-        let data: [u8; 1] = [HT16K33_BLINK_CMD | HT16K33_BLINK_DISPLAYON | (b << 1)];
+        let data: [u8; 1] = [HT16K33_BLINK_CMD | HT16K33_BLINK_DISPLAYON | (bm << 1)];
         i2c.write(self.i2c_addr, &data)?;
         Ok(())
     }
