@@ -108,6 +108,8 @@ fn main() -> ! {
     let tc45 = &clocks.tc4_tc5(&gclk0).unwrap();
     let timer = timer::TimerCounter::tc4_(tc45, peripherals.TC4, &mut peripherals.PM);
     let mut sleeping_delay = SleepingDelay::new(timer, interrupt_fired);
+    // Timer overflow interrupts are asynchronous, we can use IDLE2 sleep for max power savings
+    peripherals.PM.sleep.modify(|_, w| w.idle().apb());
 
     unsafe {
         // enable interrupts
