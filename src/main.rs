@@ -89,9 +89,7 @@ fn main() -> ! {
     let mut delay = Delay::new(core.SYST, &mut clocks);
     let mut display = match ht16k33::HT16K33::init(0x70, &mut i2c) {
         Ok(disp) => disp,
-        Err(_) => loop {
-            error(&mut red_led, &mut delay);
-        },
+        Err(_) => error(&mut red_led, &mut delay),
     };
 
     display.clear();
@@ -144,9 +142,7 @@ fn main() -> ! {
         )
         .is_err()
         {
-            loop {
-                error(&mut red_led, &mut delay);
-            }
+            error(&mut red_led, &mut delay);
         }
 
         if let Some(new_state) = oven_state.check_transition(temp) {
@@ -154,9 +150,7 @@ fn main() -> ! {
                 OvenTempState::Off | OvenTempState::CoolingDown => {
                     display.clear();
                     if display.write_display(&mut i2c).is_err() {
-                        loop {
-                            error(&mut red_led, &mut delay);
-                        }
+                        error(&mut red_led, &mut delay);
                     }
                 }
                 _ => (),
