@@ -44,7 +44,7 @@ macro_rules! serial_write {
 }
 
 /// boolean indicating if our timer interrupt has fired
-static mut INTERRUPT_FIRED: atomic::AtomicBool = atomic::AtomicBool::new(false);
+static INTERRUPT_FIRED: atomic::AtomicBool = atomic::AtomicBool::new(false);
 
 /// Main function, controlling all of our logic
 #[entry]
@@ -60,7 +60,7 @@ fn main() -> ! {
     );
 
     let mut pins = hal::Pins::new(peripherals.PORT);
-    let interrupt_fired = unsafe { &INTERRUPT_FIRED };
+    let interrupt_fired = &INTERRUPT_FIRED;
 
     #[cfg(feature = "usbserial")]
     USBSerial::init(
@@ -253,9 +253,9 @@ where
 /// The sleeping timer interrupt that wakes us up
 #[interrupt]
 fn TC4() {
+    // Let the sleepingtimer know that the interrupt fired, and clear it
+    INTERRUPT_FIRED.store(true, atomic::Ordering::Relaxed);
     unsafe {
-        // Let the sleepingtimer know that the interrupt fired, and clear it
-        INTERRUPT_FIRED.store(true, atomic::Ordering::Relaxed);
         TC4::ptr()
             .as_ref()
             .unwrap()
