@@ -93,6 +93,7 @@ fn main() -> ! {
     };
 
     display.clear();
+    display.set_brightness(1, &mut i2c).unwrap();
     display.write_display(&mut i2c).unwrap();
     display.write_digit_ascii(0, ' ', false);
     display.write_digit_ascii(1, 'H', false);
