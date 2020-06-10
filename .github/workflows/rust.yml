@@ -18,10 +18,12 @@ jobs:
     - uses: actions/checkout@v2
     - name: Setup
       run: rustup target add thumbv6m-none-eabi && rustup component add clippy
-    - name: Build
+    - name: Build (default features)
       run: cargo build --verbose
-    - name: Build w USB feature
+    - name: Build (USB feature)
       run: cargo build --verbose --features usbserial
+    - name: Build (no features)
+      run: cargo build --verbose --no-default-features
     - name: Run tests
       run: cargo test --verbose
     - uses: actions-rs/clippy-check@v1
