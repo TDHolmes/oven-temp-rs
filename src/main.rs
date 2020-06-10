@@ -206,9 +206,10 @@ where
 /// # Parameters
 /// * `red_led`: The LED pin to blink
 /// * `delay`: The `Delay` instance to wait
-fn error<PIN>(red_led: &mut PIN, delay: &mut hal::delay::Delay) -> !
+fn error<PIN, T>(red_led: &mut PIN, delay: &mut T) -> !
 where
     PIN: embedded_hal::digital::v2::OutputPin<Error = ()>,
+    T: embedded_hal::blocking::delay::DelayMs<u32>,
 {
     loop {
         red_led.set_low().unwrap();
@@ -219,15 +220,16 @@ where
 }
 
 /// Run the main state display/sleep logic
-pub fn run<I2C, CommError>(
+pub fn run<I2C, CommError, T>(
     state: OvenTempState,
     temp: f32,
     i2c: &mut I2C,
     display: &mut ht16k33::HT16K33,
-    delay: &mut SleepingDelay<timer::TimerCounter4>,
+    delay: &mut T,
 ) -> Result<(), CommError>
 where
     I2C: embedded_hal::blocking::i2c::Write<Error = CommError>,
+    T: embedded_hal::blocking::delay::DelayMs<u32>,
 {
     match state {
         OvenTempState::Off => {
