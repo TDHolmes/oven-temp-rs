@@ -25,8 +25,10 @@ ufmt = {version = "0.1", optional = true}
 ufmt-utils = {version = "0.1", optional = true}
 
 [features]
-# no features by default
-default = []
+# By default, use our sleeping delay for power savings
+default = ["sleeping-delay"]
+# Use our SleepingDelay object for delaying between samples
+sleeping-delay = []
 # usbserial feature doesn't depend on any others
 usbserial = ["heapless", "ufmt", "ufmt-utils", "usb-device", "usbd-serial"]
 

@@ -27,8 +27,6 @@ use hal::delay::Delay;
 use hal::entry;
 use hal::pac::{adc, interrupt, CorePeripherals, Peripherals, TC4};
 use hal::prelude::*;
-use hal::sleeping_delay::SleepingDelay;
-use hal::timer;
 
 #[cfg(not(feature = "usbserial"))]
 macro_rules! serial_write {
@@ -36,6 +34,7 @@ macro_rules! serial_write {
 }
 
 /// boolean indicating if our timer interrupt has fired
+#[allow(unused)]
 static INTERRUPT_FIRED: atomic::AtomicBool = atomic::AtomicBool::new(false);
 
 /// Main function, controlling all of our logic
@@ -52,7 +51,6 @@ fn main() -> ! {
     );
 
     let mut pins = hal::Pins::new(peripherals.PORT);
-    let interrupt_fired = &INTERRUPT_FIRED;
 
     #[cfg(feature = "usbserial")]
     {
@@ -99,13 +97,22 @@ fn main() -> ! {
     display.clear();
     display.write_display(&mut i2c).unwrap();
 
-    // Get a clock & make a sleeping delay object
-    let gclk0 = clocks.gclk0();
-    let tc45 = &clocks.tc4_tc5(&gclk0).unwrap();
-    let timer = timer::TimerCounter::tc4_(tc45, peripherals.TC4, &mut peripherals.PM);
-    let mut sleeping_delay = SleepingDelay::new(timer, interrupt_fired);
-    // Timer overflow interrupts are asynchronous, we can use IDLE2 sleep for max power savings
-    peripherals.PM.sleep.modify(|_, w| w.idle().apb());
+    #[cfg(feature = "sleeping-delay")]
+    let mut runner_delay = {
+        use hal::sleeping_delay::SleepingDelay;
+        use hal::timer;
+
+        // Get a clock & make a sleeping delay object
+        let gclk0 = clocks.gclk0();
+        let tc45 = &clocks.tc4_tc5(&gclk0).unwrap();
+        let timer = timer::TimerCounter::tc4_(tc45, peripherals.TC4, &mut peripherals.PM);
+        // Timer overflow interrupts are asynchronous, we can use IDLE2 sleep for max power savings
+        peripherals.PM.sleep.modify(|_, w| w.idle().apb());
+        SleepingDelay::new(timer, &INTERRUPT_FIRED)
+    };
+
+    #[cfg(not(feature = "sleeping-delay"))]
+    let mut runner_delay = delay;
 
     unsafe {
         // enable interrupts
@@ -136,11 +143,11 @@ fn main() -> ! {
             temp,
             &mut i2c,
             &mut display,
-            &mut sleeping_delay,
+            &mut runner_delay,
         )
         .is_err()
         {
-            error(&mut red_led, &mut delay);
+            error(&mut red_led, &mut runner_delay);
         }
 
         if let Some(new_state) = oven_state.check_transition(temp) {
@@ -148,7 +155,7 @@ fn main() -> ! {
                 OvenTempState::Off | OvenTempState::CoolingDown => {
                     display.clear();
                     if display.write_display(&mut i2c).is_err() {
-                        error(&mut red_led, &mut delay);
+                        error(&mut red_led, &mut runner_delay);
                     }
                 }
                 _ => (),
