@@ -9,13 +9,7 @@ const DELAY_OFF_MS: u32 = 1_000; // 60_000; 60 seconds
 const DELAY_COOLDOWN_MS: u32 = 1_000; // 15_000; 15 seconds
 const DELAY_RUNNING_MS: u32 = 1_000; // 1 second
 
-#[cfg(feature = "usbserial")]
-extern crate heapless;
 extern crate panic_semihosting;
-#[cfg(feature = "usbserial")]
-extern crate ufmt;
-#[cfg(feature = "usbserial")]
-extern crate ufmt_utils;
 
 mod ht16k33;
 mod oventemp;
@@ -23,8 +17,6 @@ mod oventemp;
 mod usbserial;
 
 use oventemp::{OvenTemp, OvenTempState};
-#[cfg(feature = "usbserial")]
-use usbserial::USBSerial;
 
 use core::sync::atomic;
 use cortex_m::peripheral::NVIC;
@@ -63,15 +55,18 @@ fn main() -> ! {
     let interrupt_fired = &INTERRUPT_FIRED;
 
     #[cfg(feature = "usbserial")]
-    USBSerial::init(
-        &mut peripherals.PM,
-        peripherals.USB,
-        &mut core.NVIC,
-        &mut clocks,
-        pins.usb_dm,
-        pins.usb_dp,
-        &mut pins.port,
-    );
+    {
+        use usbserial::USBSerial;
+        USBSerial::init(
+            &mut peripherals.PM,
+            peripherals.USB,
+            &mut core.NVIC,
+            &mut clocks,
+            pins.usb_dm,
+            pins.usb_dp,
+            &mut pins.port,
+        );
+    }
 
     let mut i2c = hal::i2c_master(
         &mut clocks,

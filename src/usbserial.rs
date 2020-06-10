@@ -1,4 +1,7 @@
 extern crate feather_m0 as hal;
+extern crate heapless;
+extern crate ufmt;
+extern crate ufmt_utils;
 extern crate usb_device;
 extern crate usbd_serial;
 
@@ -121,6 +124,8 @@ macro_rules! serial_write {
             use heapless::consts::*;
             use heapless::String;
             use ufmt::uwrite;
+            use usbserial::USBSerial;
+
             let mut s: String<U63> = String::new();
             uwrite!(
                 ufmt_utils::WriteAdapter(&mut s), $($tt)*
