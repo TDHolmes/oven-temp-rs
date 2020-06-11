@@ -82,20 +82,6 @@ fn main() -> ! {
     let mut red_led = pins.d13.into_open_drain_output(&mut pins.port);
     red_led.set_high().unwrap();
 
-    let mut delay = Delay::new(core.SYST, &mut clocks);
-    let mut display = match ht16k33::HT16K33::init(0x70, &mut i2c) {
-        Ok(disp) => disp,
-        Err(_) => error(&mut red_led, &mut delay),
-    };
-
-    display.clear();
-    display.set_brightness(1, &mut i2c).unwrap();
-    display.write_str(" HI ");
-    display.write_display(&mut i2c).unwrap();
-    delay.delay_ms(500_u32);
-    display.clear();
-    display.write_display(&mut i2c).unwrap();
-
     #[cfg(feature = "sleeping-delay")]
     let mut runner_delay = {
         use hal::sleeping_delay::SleepingDelay;
@@ -111,7 +97,20 @@ fn main() -> ! {
     };
 
     #[cfg(not(feature = "sleeping-delay"))]
-    let mut runner_delay = delay;
+    let mut runner_delay = Delay::new(core.SYST, &mut clocks);
+
+    let mut display = match ht16k33::HT16K33::init(0x70, &mut i2c) {
+        Ok(disp) => disp,
+        Err(_) => error(&mut red_led, &mut runner_delay),
+    };
+
+    display.clear();
+    display.set_brightness(1, &mut i2c).unwrap();
+    display.write_str(" HI ");
+    display.write_display(&mut i2c).unwrap();
+    runner_delay.delay_ms(500_u32);
+    display.clear();
+    display.write_display(&mut i2c).unwrap();
 
     unsafe {
         // enable interrupts
@@ -131,10 +130,10 @@ fn main() -> ! {
     if battery_reading <= LOW_BATTERY_VOLTAGE {
         display.write_str("LOW");
         display.write_display(&mut i2c).unwrap();
-        delay.delay_ms(500_u32);
+        runner_delay.delay_ms(500_u32);
         display.write_str("BATT");
         display.write_display(&mut i2c).unwrap();
-        delay.delay_ms(1000_u32);
+        runner_delay.delay_ms(1000_u32);
         display.clear();
         display.write_display(&mut i2c).unwrap();
     }
