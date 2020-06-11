@@ -1,13 +1,16 @@
 #![no_std]
 #![no_main]
 
-const ADC_FULLSCALE: u32 = 4095; // 12 bit ADC
+/// 12 bit ADC
+const ADC_FULLSCALE: u32 = 4095;
 /// Using VDDA / 2 with digital gain 1/2, our reference is ~3.3v
 const ADC_REF_VOLTAGE: f32 = 3.3;
+/// The threshold for showing a low battery indication
+const LOW_BATTERY_VOLTAGE: f32 = 3.5;
 
-const DELAY_OFF_MS: u32 = 1_000; // 60_000; 60 seconds
-const DELAY_COOLDOWN_MS: u32 = 1_000; // 15_000; 15 seconds
-const DELAY_RUNNING_MS: u32 = 1_000; // 1 second
+const DELAY_OFF_MS: u32 = 1_000;
+const DELAY_COOLDOWN_MS: u32 = 1_000;
+const DELAY_RUNNING_MS: u32 = 1_000;
 
 extern crate panic_semihosting;
 
@@ -120,6 +123,21 @@ fn main() -> ! {
     adc.gain(adc::inputctrl::GAIN_A::DIV2);
     adc.reference(adc::refctrl::REFSEL_A::INTVCC1);
     let mut therm_out = pins.a5.into_function_b(&mut pins.port);
+
+    // check the battery voltage (external HW divides the reading by two)
+    let mut batt_in_div_2 = pins.d9.into_function_b(&mut pins.port);
+    let mut battery_reading: f32 = adc.read(&mut batt_in_div_2).unwrap();
+    battery_reading = 2.0 * (battery_reading * ADC_FULLSCALE as f32);
+    if battery_reading <= LOW_BATTERY_VOLTAGE {
+        display.write_str("LOW");
+        display.write_display(&mut i2c).unwrap();
+        delay.delay_ms(500_u32);
+        display.write_str("BATT");
+        display.write_display(&mut i2c).unwrap();
+        delay.delay_ms(1000_u32);
+        display.clear();
+        display.write_display(&mut i2c).unwrap();
+    }
 
     red_led.set_low().unwrap();
 
