@@ -87,11 +87,7 @@ fn main() -> ! {
 
     display.clear();
     display.set_brightness(1, &mut i2c).unwrap();
-    display.write_display(&mut i2c).unwrap();
-    display.write_digit_ascii(0, ' ', false);
-    display.write_digit_ascii(1, 'H', false);
-    display.write_digit_ascii(2, 'I', false);
-    display.write_digit_ascii(3, ' ', false);
+    display.write_str(" HI ");
     display.write_display(&mut i2c).unwrap();
     delay.delay_ms(500_u32);
     display.clear();

@@ -224,6 +224,17 @@ impl HT16K33 {
         }
     }
 
+    pub fn write_str(&mut self, msg: &str) {
+        let mut index: u8 = 0;
+        for c in msg.chars() {
+            self.write_digit_ascii(index, c, false);
+            index += 1;
+            if index >= 4 {
+                break;
+            }
+        }
+    }
+
     pub fn write_digit_ascii(&mut self, n: u8, character: char, point: bool) {
         self.display_buffer[n as usize] = ALPHA_FONT_TABLE[character as usize];
         if point {
