@@ -1,9 +1,6 @@
 extern crate feather_m0 as hal;
-extern crate heapless;
-extern crate ufmt;
-extern crate ufmt_utils;
-extern crate usb_device;
-extern crate usbd_serial;
+use usb_device;
+use usbd_serial;
 
 use cortex_m::peripheral::NVIC;
 use hal::clock::GenericClockController;

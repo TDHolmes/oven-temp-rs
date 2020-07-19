@@ -1,7 +1,7 @@
 /// Threshold at which we start displaying the temperature
 const TEMP_ON_THRESHOLD: f32 = 100.;
 /// Threshold at which we turn the display back off as the oven cools off
-const TEMP_OFF_THRESHOLD: f32 = 200.;
+const TEMP_OFF_THRESHOLD: f32 = 300.;
 /// Some hysteresis to avoid thrash
 const TEMP_HYSTERESIS: f32 = 10.;
 
@@ -51,7 +51,7 @@ impl OvenTemp {
             OvenTempState::HeatingUp => {
                 if temp >= TEMP_OFF_THRESHOLD + TEMP_HYSTERESIS {
                     Some(OvenTempState::AtTemp)
-                } else if temp >= TEMP_ON_THRESHOLD - TEMP_HYSTERESIS {
+                } else if temp < TEMP_ON_THRESHOLD - TEMP_HYSTERESIS {
                     Some(OvenTempState::Off)
                 } else {
                     None

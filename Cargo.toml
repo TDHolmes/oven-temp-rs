@@ -11,7 +11,7 @@ keywords = ["feather_m0", "embedded", "thermocouple", "AD8495", "HT16K33"]
 categories = ["No standard library"]
 
 [dependencies]
-feather_m0 = {features = ["unproven", "usb"], git = "https://github.com/TDHolmes/atsamd", branch = "sleeping_delay"}
+feather_m0 = {features = ["unproven"], git = "https://github.com/atsamd-rs/atsamd"}
 embedded-hal = "0.2"
 cortex-m = "0.6.2"
 cortex-m-rt = "0.6"  # for interrupts
@@ -30,7 +30,7 @@ default = ["sleeping-delay"]
 # Use our SleepingDelay object for delaying between samples
 sleeping-delay = []
 # usbserial feature doesn't depend on any others
-usbserial = ["heapless", "ufmt", "ufmt-utils", "usb-device", "usbd-serial"]
+usbserial = ["heapless", "ufmt", "ufmt-utils", "usb-device", "usbd-serial", "feather_m0/usb"]
 
 # this lets you use `cargo fix`!
 [[bin]]

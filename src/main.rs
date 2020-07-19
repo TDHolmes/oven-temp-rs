@@ -1,5 +1,7 @@
 #![no_std]
 #![no_main]
+#![warn(rust_2018_idioms)]
+#![warn(clippy::all)]
 
 /// 12 bit ADC
 const ADC_FULLSCALE: u32 = 4095;
@@ -12,21 +14,22 @@ const DELAY_OFF_MS: u32 = 1_000;
 const DELAY_COOLDOWN_MS: u32 = 1_000;
 const DELAY_RUNNING_MS: u32 = 1_000;
 
-extern crate panic_semihosting;
+use panic_semihosting as _; // Panic handler
 
-mod ht16k33;
-mod oventemp;
 #[cfg(feature = "usbserial")]
-mod usbserial;
-
-use oventemp::{OvenTemp, OvenTempState};
+use oven_temp_rs::serial_write;
+#[cfg(feature = "usbserial")]
+use oven_temp_rs::usbserial;
+use oven_temp_rs::{
+    ht16k33,
+    oventemp::{OvenTemp, OvenTempState},
+};
 
 use core::sync::atomic;
 use cortex_m::peripheral::NVIC;
 use feather_m0 as hal;
 use hal::adc::Adc;
 use hal::clock::GenericClockController;
-use hal::delay::Delay;
 use hal::entry;
 use hal::pac::{adc, interrupt, CorePeripherals, Peripherals, TC4};
 use hal::prelude::*;
@@ -57,7 +60,7 @@ fn main() -> ! {
 
     #[cfg(feature = "usbserial")]
     {
-        use usbserial::USBSerial;
+        use oven_temp_rs::usbserial::USBSerial;
         USBSerial::init(
             &mut peripherals.PM,
             peripherals.USB,
@@ -93,11 +96,22 @@ fn main() -> ! {
         let timer = timer::TimerCounter::tc4_(tc45, peripherals.TC4, &mut peripherals.PM);
         // Timer overflow interrupts are asynchronous, we can use IDLE2 sleep for max power savings
         peripherals.PM.sleep.modify(|_, w| w.idle().apb());
+
+        unsafe {
+            // enable interrupts
+            core.NVIC.set_priority(interrupt::TC4, 2);
+            NVIC::unmask(interrupt::TC4);
+        }
+
         SleepingDelay::new(timer, &INTERRUPT_FIRED)
     };
 
     #[cfg(not(feature = "sleeping-delay"))]
-    let mut runner_delay = Delay::new(core.SYST, &mut clocks);
+    let mut runner_delay = {
+        use hal::delay::Delay;
+
+        Delay::new(core.SYST, &mut clocks)
+    };
 
     let mut display = match ht16k33::HT16K33::init(0x70, &mut i2c) {
         Ok(disp) => disp,
@@ -112,16 +126,10 @@ fn main() -> ! {
     display.clear();
     display.write_display(&mut i2c).unwrap();
 
-    unsafe {
-        // enable interrupts
-        core.NVIC.set_priority(interrupt::TC4, 2);
-        NVIC::unmask(interrupt::TC4);
-    }
-
     let mut adc = Adc::adc(peripherals.ADC, &mut peripherals.PM, &mut clocks);
     adc.gain(adc::inputctrl::GAIN_A::DIV2);
     adc.reference(adc::refctrl::REFSEL_A::INTVCC1);
-    let mut therm_out = pins.a5.into_function_b(&mut pins.port);
+    let mut therm_out = pins.a4.into_function_b(&mut pins.port);
 
     // check the battery voltage (external HW divides the reading by two)
     let mut batt_in_div_2 = pins.d9.into_function_b(&mut pins.port);
@@ -248,20 +256,18 @@ where
 {
     match state {
         OvenTempState::Off => {
-            serial_write!("Delaying for {} ms\r\n", DELAY_OFF_MS);
+            serial_write!("Off\r\n");
             delay.delay_ms(DELAY_OFF_MS);
             Ok(())
         }
         OvenTempState::CoolingDown => {
-            // TODO: sleep for a long time, but not as long as Off
-            serial_write!("Delaying for {} ms\r\n", DELAY_COOLDOWN_MS);
+            serial_write!("CoolingDown\r\n");
             delay.delay_ms(DELAY_COOLDOWN_MS);
             Ok(())
         }
         _ => {
-            // All other states we're on and displaying the temp
+            serial_write!("WarmingUp or AtTemp\r\n");
             let ret = display_temp(temp, i2c, display);
-            serial_write!("Delaying for {} ms\r\n", DELAY_RUNNING_MS);
             delay.delay_ms(DELAY_RUNNING_MS);
             ret
         }
