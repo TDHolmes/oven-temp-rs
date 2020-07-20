@@ -5,7 +5,7 @@ const TEMP_OFF_THRESHOLD: f32 = 300.;
 /// Some hysteresis to avoid thrash
 const TEMP_HYSTERESIS: f32 = 10.;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum OvenTempState {
     /// The oven is determined to be off and not running
     Off,

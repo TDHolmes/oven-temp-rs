@@ -149,6 +149,7 @@ fn main() -> ! {
     red_led.set_low().unwrap();
 
     let mut oven_state = OvenTemp::new();
+    let mut iteration = 0_u32;
 
     loop {
         let therm_reading: u16 = adc.read(&mut therm_out).unwrap();
@@ -156,6 +157,7 @@ fn main() -> ! {
             (therm_reading as f32 / ADC_FULLSCALE as f32) * ADC_REF_VOLTAGE as f32;
         let temp_c: f32 = (therm_voltage - 1.25) / 0.005;
         let temp: f32 = temp_c * (9. / 5.) + 32.;
+        iteration += 1;
 
         serial_write!("reading: {}.{}\r\n", temp as u32, (temp * 10.) as u32 % 10);
 
@@ -180,6 +182,24 @@ fn main() -> ! {
                     }
                 }
                 _ => (),
+            }
+        }
+
+        // blink a dot to show we're alive
+        const SECS_BETWEEN_BLINK: u32 = 15;
+        if oven_state.state == OvenTempState::Off || oven_state.state == OvenTempState::CoolingDown
+        {
+            if iteration % SECS_BETWEEN_BLINK == SECS_BETWEEN_BLINK - 2 {
+                display.clear();
+                display.write_digit_ascii(1, ' ', true);
+                if display.write_display(&mut i2c).is_err() {
+                    error(&mut red_led, &mut runner_delay);
+                }
+            } else if iteration % SECS_BETWEEN_BLINK == SECS_BETWEEN_BLINK - 1 {
+                display.clear();
+                if display.write_display(&mut i2c).is_err() {
+                    error(&mut red_led, &mut runner_delay);
+                }
             }
         }
     }
