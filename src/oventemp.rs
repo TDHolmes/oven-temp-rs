@@ -67,6 +67,8 @@ impl OvenTemp {
             OvenTempState::CoolingDown => {
                 if temp <= TEMP_ON_THRESHOLD - TEMP_HYSTERESIS {
                     Some(OvenTempState::Off)
+                } else if temp >= TEMP_OFF_THRESHOLD + TEMP_HYSTERESIS {
+                    Some(OvenTempState::AtTemp)
                 } else {
                     None
                 }
