@@ -1,0 +1,8 @@
+title: Binaryclock
+description: The Firmware, PCB files and Software for the Binary Clock 2.0 project.
+google_analytics: 
+show_downloads: true
+theme: jekyll-theme-minimal
+
+gems:
+  - jekyll-mentions
