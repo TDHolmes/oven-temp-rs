@@ -7,12 +7,14 @@
 const ADC_FULLSCALE: u32 = 4095;
 /// Using VDDA / 2 with digital gain 1/2, our reference is ~3.3v
 const ADC_REF_VOLTAGE: f32 = 3.3;
-/// The threshold for showing a low battery indication
-const LOW_BATTERY_VOLTAGE: f32 = 3.5;
+/// The threshold for showing a low battery indication.
+/// We can't descern much below this voltage due to drop out
+const LOW_BATTERY_VOLTAGE: f32 = 3.6;
 
 const DELAY_OFF_MS: u32 = 1_000;
 const DELAY_COOLDOWN_MS: u32 = 1_000;
 const DELAY_RUNNING_MS: u32 = 1_000;
+const SECS_BETWEEN_BLINK: u32 = 5;
 
 use panic_semihosting as _; // Panic handler
 
@@ -29,7 +31,7 @@ use core::sync::atomic;
 use cortex_m::peripheral::NVIC;
 use feather_m0 as hal;
 use hal::adc::Adc;
-use hal::clock::GenericClockController;
+use hal::clock::{enable_internal_32kosc, ClockGenId, ClockSource, GenericClockController};
 use hal::entry;
 use hal::pac::{adc, interrupt, CorePeripherals, Peripherals, TC4};
 use hal::prelude::*;
@@ -49,7 +51,7 @@ fn main() -> ! {
     #[allow(unused_mut)] // Only used when usbserial is enabled
     let mut core = CorePeripherals::take().unwrap();
     let mut peripherals = Peripherals::take().unwrap();
-    let mut clocks = GenericClockController::with_external_32kosc(
+    let mut clocks = GenericClockController::with_internal_8mhz(
         peripherals.GCLK,
         &mut peripherals.PM,
         &mut peripherals.SYSCTRL,
@@ -90,12 +92,18 @@ fn main() -> ! {
         use hal::sleeping_delay::SleepingDelay;
         use hal::timer;
 
-        // Get a clock & make a sleeping delay object
-        let gclk0 = clocks.gclk0();
-        let tc45 = &clocks.tc4_tc5(&gclk0).unwrap();
+        // Get a clock & make a sleeping delay object. use internal 32k clock that runs
+        // in standby
+        enable_internal_32kosc(&mut peripherals.SYSCTRL);
+        let timer_clock = clocks
+            .configure_gclk_divider_and_source(ClockGenId::GCLK1, 1, ClockSource::OSC32K, false)
+            .unwrap();
+        clocks.configure_standby(ClockGenId::GCLK1, true);
+        let tc45 = &clocks.tc4_tc5(&timer_clock).unwrap();
         let timer = timer::TimerCounter::tc4_(tc45, peripherals.TC4, &mut peripherals.PM);
-        // Timer overflow interrupts are asynchronous, we can use IDLE2 sleep for max power savings
-        peripherals.PM.sleep.modify(|_, w| w.idle().apb());
+        // We can also use it in standby mode, if all of the clocks are configured to
+        //   opperate in standby, for even more power savings
+        core.SCB.set_sleepdeep();
 
         unsafe {
             // enable interrupts
@@ -133,18 +141,6 @@ fn main() -> ! {
 
     // check the battery voltage (external HW divides the reading by two)
     let mut batt_in_div_2 = pins.d9.into_function_b(&mut pins.port);
-    let mut battery_reading: f32 = adc.read(&mut batt_in_div_2).unwrap();
-    battery_reading = 2.0 * (battery_reading * ADC_FULLSCALE as f32);
-    if battery_reading <= LOW_BATTERY_VOLTAGE {
-        display.write_str("LOW");
-        display.write_display(&mut i2c).unwrap();
-        runner_delay.delay_ms(500_u32);
-        display.write_str("BATT");
-        display.write_display(&mut i2c).unwrap();
-        runner_delay.delay_ms(1000_u32);
-        display.clear();
-        display.write_display(&mut i2c).unwrap();
-    }
 
     red_led.set_low().unwrap();
 
@@ -152,6 +148,31 @@ fn main() -> ! {
     let mut iteration = 0_u32;
 
     loop {
+        // Check to make sure our battery is in good shape
+        let mut battery_reading: f32 = adc.read(&mut batt_in_div_2).unwrap();
+        battery_reading =
+            2.0 * ((battery_reading as f32 / ADC_FULLSCALE as f32) * ADC_REF_VOLTAGE as f32);
+
+        if battery_reading <= LOW_BATTERY_VOLTAGE {
+            // inform user of low battery. Thermocouple readings are not accurate
+            display.write_str("LOW");
+            display.write_display(&mut i2c).unwrap();
+            runner_delay.delay_ms(500_u32);
+            display.write_str("BATT");
+            display.write_display(&mut i2c).unwrap();
+            runner_delay.delay_ms(500_u32);
+            display.clear();
+            display.write_display(&mut i2c).unwrap();
+
+            // Delay for a long while with display in standby to save some power
+            display.configure_standby(&mut i2c, true).unwrap();
+            runner_delay.delay_ms(5_000_u32);
+            display.configure_standby(&mut i2c, false).unwrap();
+            runner_delay.delay_ms(100_u32);
+            continue; // Do not run the typical thermocouple routine
+        }
+
+        // Check the thermocouple
         let therm_reading: u16 = adc.read(&mut therm_out).unwrap();
         let therm_voltage: f32 =
             (therm_reading as f32 / ADC_FULLSCALE as f32) * ADC_REF_VOLTAGE as f32;
@@ -176,30 +197,38 @@ fn main() -> ! {
         if let Some(new_state) = oven_state.check_transition(temp) {
             match new_state {
                 OvenTempState::Off | OvenTempState::CoolingDown => {
+                    // clear and turn off the display
                     display.clear();
                     if display.write_display(&mut i2c).is_err() {
                         error(&mut red_led, &mut runner_delay);
                     }
+                    if display.configure_standby(&mut i2c, true).is_err() {
+                        error(&mut red_led, &mut runner_delay);
+                    }
                 }
-                _ => (),
+                _ => {
+                    // take the display out of standby mode
+                    if display.configure_standby(&mut i2c, false).is_err() {
+                        error(&mut red_led, &mut runner_delay);
+                    }
+                }
             }
         }
 
         // blink a dot to show we're alive
-        const SECS_BETWEEN_BLINK: u32 = 15;
-        if oven_state.state == OvenTempState::Off || oven_state.state == OvenTempState::CoolingDown
+        if (oven_state.state == OvenTempState::Off
+            || oven_state.state == OvenTempState::CoolingDown)
+            && (iteration % SECS_BETWEEN_BLINK == SECS_BETWEEN_BLINK - 1)
         {
-            if iteration % SECS_BETWEEN_BLINK == SECS_BETWEEN_BLINK - 2 {
-                display.clear();
-                display.write_digit_ascii(1, ' ', true);
-                if display.write_display(&mut i2c).is_err() {
-                    error(&mut red_led, &mut runner_delay);
-                }
-            } else if iteration % SECS_BETWEEN_BLINK == SECS_BETWEEN_BLINK - 1 {
-                display.clear();
-                if display.write_display(&mut i2c).is_err() {
-                    error(&mut red_led, &mut runner_delay);
-                }
+            display.clear();
+            display.write_digit_ascii(1, ' ', true);
+            if display.write_display(&mut i2c).is_err() {
+                error(&mut red_led, &mut runner_delay);
+            }
+            runner_delay.delay_ms(50_u32);
+            display.clear();
+            if display.write_display(&mut i2c).is_err() {
+                error(&mut red_led, &mut runner_delay);
             }
         }
     }
@@ -224,7 +253,7 @@ where
         display.write_digit_value(1, ones_place, true);
         display.write_digit_value(2, tenths_place, false);
         display.write_digit_value(3, hundredths_place, false);
-    } else if temp_f >= 100. && temp_f < 1000. {
+    } else if temp_f >= 100. && temp_f < 600. {
         let hundreds_place: u8 = (temp_f / 100.) as u8;
         let tens_place: u8 = ((temp_f / 10.) % 10.) as u8;
         let ones_place: u8 = (temp_f % 10.) as u8;
@@ -234,11 +263,8 @@ where
         display.write_digit_value(2, ones_place, true);
         display.write_digit_value(3, tenths_place, false);
     } else {
-        // Temp < 10 or >= 1000
-        display.write_digit_ascii(0, 'E', false);
-        display.write_digit_ascii(1, 'R', false);
-        display.write_digit_ascii(2, 'R', false);
-        display.write_digit_ascii(3, '!', false);
+        // Temp < 10 or >= 600. >= 600 is generally disconnected thermocouple
+        display.write_str("ERR!");
     }
 
     display.write_display(i2c)

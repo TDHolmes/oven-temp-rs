@@ -149,6 +149,9 @@ const HT16K33_BLINK_OFF: u8 = 0;
 // const HT16K33_BLINK_1HZ: u8 = 2;
 // const HT16K33_BLINK_HALFHZ: u8 = 3;
 
+const HT16K33_SYSTEM_SETUP: u8 = 0x20;
+const HT16K33_SYSTEM_SETUP_NORMAL: u8 = 0x01;
+const HT16K33_SYSTEM_SETUP_STANDBY: u8 = 0x00;
 const HT16K33_CMD_BRIGHTNESS: u8 = 0xE0;
 // const SEVENSEG_DIGITS: u8 = 5;
 
@@ -176,8 +179,7 @@ impl HT16K33 {
         };
 
         // turn on oscillator
-        let data: [u8; 1] = [0x21];
-        i2c.write(ht.i2c_addr, &data)?;
+        ht.configure_standby(i2c, false)?;
         ht.blink_rate(HT16K33_BLINK_OFF, i2c)?;
         ht.set_brightness(15, i2c)?; // max brightness
 
@@ -211,6 +213,29 @@ impl HT16K33 {
         Ok(())
     }
 
+    pub fn configure_standby<I2C, CommE>(
+        &mut self,
+        i2c: &mut I2C,
+        standby: bool,
+    ) -> Result<(), CommE>
+    where
+        I2C: embedded_hal::blocking::i2c::Write<Error = CommE>,
+    {
+        if standby {
+            i2c.write(
+                self.i2c_addr,
+                &[HT16K33_SYSTEM_SETUP | HT16K33_SYSTEM_SETUP_STANDBY],
+            )?;
+        } else {
+            i2c.write(
+                self.i2c_addr,
+                &[HT16K33_SYSTEM_SETUP | HT16K33_SYSTEM_SETUP_NORMAL],
+            )?;
+        }
+
+        Ok(())
+    }
+
     pub fn clear(&mut self) {
         for i in 0..8 {
             self.display_buffer[i] = 0;
@@ -225,10 +250,8 @@ impl HT16K33 {
     }
 
     pub fn write_str(&mut self, msg: &str) {
-        let mut index: u8 = 0;
-        for c in msg.chars() {
-            self.write_digit_ascii(index, c, false);
-            index += 1;
+        for (index, c) in msg.chars().enumerate() {
+            self.write_digit_ascii(index as u8, c, false);
             if index >= 4 {
                 break;
             }
