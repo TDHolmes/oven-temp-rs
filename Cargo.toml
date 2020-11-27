@@ -13,7 +13,7 @@ categories = ["No standard library"]
 [dependencies]
 feather_m0 = {features = ["unproven"], git = "https://github.com/atsamd-rs/atsamd"}
 embedded-hal = "0.2"
-cortex-m = "0.6.2"
+cortex-m = "0.6.4"
 cortex-m-rt = "0.6"  # for interrupts
 panic-semihosting = {version = "0.5"}
 

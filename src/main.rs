@@ -51,6 +51,10 @@ fn main() -> ! {
     #[allow(unused_mut)] // Only used when usbserial is enabled
     let mut core = CorePeripherals::take().unwrap();
     let mut peripherals = Peripherals::take().unwrap();
+    let mut pins = hal::Pins::new(peripherals.PORT);
+
+    // just 8 MHz for lower power consumption
+    #[cfg(not(feature = "usbserial"))]
     let mut clocks = GenericClockController::with_internal_8mhz(
         peripherals.GCLK,
         &mut peripherals.PM,
@@ -58,7 +62,14 @@ fn main() -> ! {
         &mut peripherals.NVMCTRL,
     );
 
-    let mut pins = hal::Pins::new(peripherals.PORT);
+    // 48 MHz needed for USB
+    #[cfg(feature = "usbserial")]
+    let mut clocks = GenericClockController::with_external_32kosc(
+        peripherals.GCLK,
+        &mut peripherals.PM,
+        &mut peripherals.SYSCTRL,
+        &mut peripherals.NVMCTRL,
+    );
 
     #[cfg(feature = "usbserial")]
     {
@@ -121,9 +132,12 @@ fn main() -> ! {
         Delay::new(core.SYST, &mut clocks)
     };
 
-    let mut display = match ht16k33::HT16K33::init(0x70, &mut i2c) {
-        Ok(disp) => disp,
-        Err(_) => error(&mut red_led, &mut runner_delay),
+    // wait here until the display is plugged in and communicating
+    let mut display = loop {
+        match ht16k33::HT16K33::init(0x70, &mut i2c) {
+            Ok(disp) => break disp,
+            _ => runner_delay.delay_ms(1_000_u32),
+        };
     };
 
     display.clear();
@@ -137,6 +151,7 @@ fn main() -> ! {
     let mut adc = Adc::adc(peripherals.ADC, &mut peripherals.PM, &mut clocks);
     adc.gain(adc::inputctrl::GAIN_A::DIV2);
     adc.reference(adc::refctrl::REFSEL_A::INTVCC1);
+    adc.samples(adc::avgctrl::SAMPLENUM_A::_32);
     let mut therm_out = pins.a4.into_function_b(&mut pins.port);
 
     // check the battery voltage (external HW divides the reading by two)
@@ -220,6 +235,12 @@ fn main() -> ! {
             || oven_state.state == OvenTempState::CoolingDown)
             && (iteration % SECS_BETWEEN_BLINK == SECS_BETWEEN_BLINK - 1)
         {
+            // Turn display on
+            if display.configure_standby(&mut i2c, false).is_err() {
+                error(&mut red_led, &mut runner_delay);
+            }
+
+            // Blink dot
             display.clear();
             display.write_digit_ascii(1, ' ', true);
             if display.write_display(&mut i2c).is_err() {
@@ -228,6 +249,11 @@ fn main() -> ! {
             runner_delay.delay_ms(50_u32);
             display.clear();
             if display.write_display(&mut i2c).is_err() {
+                error(&mut red_led, &mut runner_delay);
+            }
+
+            // turn display back off
+            if display.configure_standby(&mut i2c, false).is_err() {
                 error(&mut red_led, &mut runner_delay);
             }
         }

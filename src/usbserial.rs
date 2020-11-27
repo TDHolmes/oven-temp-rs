@@ -39,28 +39,28 @@ impl USBSerial {
         dp: hal::gpio::Pa25<Input<Floating>>,
         port: &mut Port,
     ) {
+        let bus_allocator = unsafe {
+            BUS_ALLOCATOR = Some(hal::usb_allocator(
+                usb_perph, clocks, pm_perph, dm, dp, port,
+            ));
+            BUS_ALLOCATOR.as_ref().unwrap()
+        };
+
         unsafe {
-            if USB_SERIAL.is_none() {
-                BUS_ALLOCATOR = Some(hal::usb_allocator(
-                    usb_perph, clocks, pm_perph, dm, dp, port,
-                ));
-                let bus_allocator = BUS_ALLOCATOR.as_ref().unwrap();
+            // Initialize our USBSerial singlton
+            USB_SERIAL = Some(USBSerial {
+                usb_serial: SerialPort::new(bus_allocator), /* This must initialize first! */
+                usb_bus: UsbDeviceBuilder::new(bus_allocator, UsbVidPid(0x16c0, 0x27dd))
+                    .manufacturer("Fake company")
+                    .product("Serial port")
+                    .serial_number("TEST")
+                    .device_class(USB_CLASS_CDC)
+                    .build(),
+            });
 
-                // Initialize our USBSerial singlton
-                USB_SERIAL = Some(USBSerial {
-                    usb_serial: SerialPort::new(bus_allocator), /* This must initialize first! */
-                    usb_bus: UsbDeviceBuilder::new(bus_allocator, UsbVidPid(0x16c0, 0x27dd))
-                        .manufacturer("Fake company")
-                        .product("Serial port")
-                        .serial_number("TEST")
-                        .device_class(USB_CLASS_CDC)
-                        .build(),
-                });
-
-                // enable interrupts
-                nvic.set_priority(interrupt::USB, 1);
-                NVIC::unmask(interrupt::USB);
-            }
+            // enable interrupts
+            nvic.set_priority(interrupt::USB, 1);
+            NVIC::unmask(interrupt::USB);
         }
     }
 
@@ -90,18 +90,19 @@ impl USBSerial {
     /// Number of bytes read
     fn poll_usb(read_buffer: &mut [u8]) -> usize {
         unsafe {
-            let usbserial: &mut USBSerial = USB_SERIAL.as_mut().unwrap();
-            usbserial.usb_bus.poll(&mut [&mut usbserial.usb_serial]);
+            USB_SERIAL.as_mut().map(|usbserial| {
+                usbserial.usb_bus.poll(&mut [&mut usbserial.usb_serial]);
 
-            if let Ok(_bytes_read) = usbserial.usb_serial.read(read_buffer) {
-                // We can panic if we write in interrupt & main context! No need to echo chars, so don't write here
-                // usbserial
-                //     .usb_serial
-                //     .write(&read_buffer[0..bytes_read])
-                //     .unwrap();
-                // return bytes_read;
-            };
-        };
+                if let Ok(_bytes_read) = usbserial.usb_serial.read(read_buffer) {
+                    // We can panic if we write in interrupt & main context! No need to echo chars, so don't write here
+                    // usbserial
+                    //     .usb_serial
+                    //     .write(&read_buffer[0..bytes_read])
+                    //     .unwrap();
+                    // return bytes_read;
+                }
+            });
+        }
         0
     }
 }
