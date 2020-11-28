@@ -296,22 +296,60 @@ where
     display.write_display(i2c)
 }
 
-/// Blinks the red LED indicating an error forever
+/// Blinks an SOS pattern indicating an error
 ///
 /// # Parameters
 /// * `red_led`: The LED pin to blink
 /// * `delay`: The `Delay` instance to wait
-fn error<PIN, T>(red_led: &mut PIN, delay: &mut T) -> !
+fn error<PIN, T>(red_led: &mut PIN, delay: &mut T)
 where
     PIN: embedded_hal::digital::v2::OutputPin<Error = ()>,
     T: embedded_hal::blocking::delay::DelayMs<u32>,
 {
-    loop {
-        red_led.set_low().unwrap();
-        delay.delay_ms(1000_u32);
-        red_led.set_high().unwrap();
-        delay.delay_ms(1000_u32);
-    }
+    const SHORT_BLIP_MS: u32 = 250;
+    const LONG_BLIP_MS: u32 = 250;
+
+    // S
+    red_led.set_low().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_high().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_low().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_high().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_low().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_high().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+
+    // O
+    red_led.set_low().unwrap();
+    delay.delay_ms(LONG_BLIP_MS);
+    red_led.set_high().unwrap();
+    delay.delay_ms(LONG_BLIP_MS);
+    red_led.set_low().unwrap();
+    delay.delay_ms(LONG_BLIP_MS);
+    red_led.set_high().unwrap();
+    delay.delay_ms(LONG_BLIP_MS);
+    red_led.set_low().unwrap();
+    delay.delay_ms(LONG_BLIP_MS);
+    red_led.set_high().unwrap();
+    delay.delay_ms(LONG_BLIP_MS);
+
+    // S
+    red_led.set_low().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_high().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_low().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_high().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_low().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_high().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
 }
 
 /// Run the main state display/sleep logic
