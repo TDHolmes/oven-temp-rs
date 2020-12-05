@@ -1,3 +1,5 @@
+//! The abstracted components for the oven-temp binary.
+
 #![no_std]
 #![warn(rust_2018_idioms)]
 #![warn(clippy::all)]

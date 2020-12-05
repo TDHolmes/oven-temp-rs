@@ -1,3 +1,5 @@
+//! Battery powered oven temperature monitor for ovens without digital read-outs.
+
 #![no_std]
 #![no_main]
 #![warn(rust_2018_idioms)]

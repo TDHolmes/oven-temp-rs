@@ -1,4 +1,4 @@
-// use embedded_hal::blocking::i2c::Write;
+//! HT16K33 segment display driver, based on the Adafruit Arduino driver.
 
 const DISPLAY_BUFFER_SIZE: usize = 8;
 

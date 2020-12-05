@@ -1,3 +1,5 @@
+//! State-machine for when to display the temperature and when to conserve power.
+
 /// Threshold at which we start displaying the temperature
 const TEMP_ON_THRESHOLD: f32 = 100.;
 /// Threshold at which we turn the display back off as the oven cools off

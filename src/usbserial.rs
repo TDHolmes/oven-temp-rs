@@ -1,3 +1,5 @@
+//! Optional debug serial communication over USB.
+
 extern crate feather_m0 as hal;
 use usb_device;
 use usbd_serial;
