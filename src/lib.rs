@@ -6,3 +6,4 @@ pub mod ht16k33;
 pub mod oventemp;
 #[cfg(feature = "usbserial")]
 pub mod usbserial;
+pub mod battery;

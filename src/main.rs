@@ -25,6 +25,7 @@ use oven_temp_rs::usbserial;
 use oven_temp_rs::{
     ht16k33,
     oventemp::{OvenTemp, OvenTempState},
+    battery
 };
 
 use core::sync::atomic;
@@ -230,7 +231,18 @@ fn main() -> ! {
             }
         }
 
-        // blink a dot to show we're alive
+        // blink a dot to show we're alive, and show battery percentage
+        let battery_percentage = battery::voltage_to_percentage(battery_reading);
+        let mut blink_index: u8 = 0;
+        if battery_percentage >= 75 {
+            blink_index = 3;
+        } else if battery_percentage >= 50 {
+            blink_index = 2;
+        } else if battery_percentage >= 25 {
+            blink_index = 1;
+        }
+
+        // blink the dot
         if (oven_state.state == OvenTempState::Off
             || oven_state.state == OvenTempState::CoolingDown)
             && (iteration % SECS_BETWEEN_BLINK == SECS_BETWEEN_BLINK - 1)
@@ -242,7 +254,7 @@ fn main() -> ! {
 
             // Blink dot
             display.clear();
-            display.write_digit_ascii(1, ' ', true);
+            display.write_digit_ascii(blink_index, ' ', true);
             if display.write_display(&mut i2c).is_err() {
                 error(&mut red_led, &mut runner_delay);
             }
