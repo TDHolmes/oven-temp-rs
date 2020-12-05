@@ -9,7 +9,7 @@ const ADC_FULLSCALE: u32 = 4095;
 const ADC_REF_VOLTAGE: f32 = 3.3;
 /// The threshold for showing a low battery indication.
 /// We can't descern much below this voltage due to drop out
-const LOW_BATTERY_VOLTAGE: f32 = 3.6;
+const LOW_BATTERY_VOLTAGE: f32 = 3.7;
 
 const DELAY_OFF_MS: u32 = 1_000;
 const DELAY_COOLDOWN_MS: u32 = 1_000;
@@ -307,11 +307,9 @@ where
     T: embedded_hal::blocking::delay::DelayMs<u32>,
 {
     const SHORT_BLIP_MS: u32 = 250;
-    const LONG_BLIP_MS: u32 = 250;
+    const LONG_BLIP_MS: u32 = 500;
 
     // S
-    red_led.set_low().unwrap();
-    delay.delay_ms(SHORT_BLIP_MS);
     red_led.set_high().unwrap();
     delay.delay_ms(SHORT_BLIP_MS);
     red_led.set_low().unwrap();
@@ -321,11 +319,11 @@ where
     red_led.set_low().unwrap();
     delay.delay_ms(SHORT_BLIP_MS);
     red_led.set_high().unwrap();
+    delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_low().unwrap();
     delay.delay_ms(SHORT_BLIP_MS);
 
     // O
-    red_led.set_low().unwrap();
-    delay.delay_ms(LONG_BLIP_MS);
     red_led.set_high().unwrap();
     delay.delay_ms(LONG_BLIP_MS);
     red_led.set_low().unwrap();
@@ -335,11 +333,11 @@ where
     red_led.set_low().unwrap();
     delay.delay_ms(LONG_BLIP_MS);
     red_led.set_high().unwrap();
+    delay.delay_ms(LONG_BLIP_MS);
+    red_led.set_low().unwrap();
     delay.delay_ms(LONG_BLIP_MS);
 
     // S
-    red_led.set_low().unwrap();
-    delay.delay_ms(SHORT_BLIP_MS);
     red_led.set_high().unwrap();
     delay.delay_ms(SHORT_BLIP_MS);
     red_led.set_low().unwrap();
@@ -350,6 +348,9 @@ where
     delay.delay_ms(SHORT_BLIP_MS);
     red_led.set_high().unwrap();
     delay.delay_ms(SHORT_BLIP_MS);
+    red_led.set_low().unwrap();
+
+    delay.delay_ms(2 * LONG_BLIP_MS);
 }
 
 /// Run the main state display/sleep logic
