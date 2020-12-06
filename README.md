@@ -5,6 +5,8 @@ This project utilizes a [Feather M0] board, a [quad alphanumeric display], and a
 not have digital temperature readout. It is battery opperated, and written
 in [rust].
 
+Read more about it [on my website!](https://www.holmesengineering.com/oven-temp-rs/)
+
 # License
 
 This code is licensed under either of:
@@ -31,5 +33,5 @@ additional terms or conditions.
 [quad alphanumeric display]: https://www.adafruit.com/product/3127
 [thermocouple amplifier]: https://www.adafruit.com/product/1778
 [rust]: https://rust-lang.org
-[oven-temp-board]: https://github.com/TDHolmes/oven-temp-rs/raw/master/docs/images/oven-temp-board.jpeg
+[oven-temp-board]: https://github.com/TDHolmes/oven-temp-rs/raw/master/docs/images/oven-temp-off.jpeg
 [schematic]: https://github.com/TDHolmes/oven-temp-rs/raw/master/docs/images/schematic.png
