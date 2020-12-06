@@ -62,5 +62,5 @@ like a more efficient LDO.
 [oven-temp-board]: https://github.com/TDHolmes/oven-temp-rs/raw/master/docs/images/oven-temp-off.jpeg "The oven temp monitor in place"
 [power - wfi]: https://github.com/TDHolmes/oven-temp-rs/raw/master/docs/images/power-consumption-idle.png "Idle power consumption numbers with and without WFI"
 [power - overall]: https://github.com/TDHolmes/oven-temp-rs/raw/master/docs/images/power-consumption.png "Measurement of the overall power consumption while displaying a temperature"
-[power - measurement]: https://github.com/TDHolmes/oven-temp-rs/raw/master/docs/images/power-measurement.png "Measuring power consumption with the EEVBlog's uCurrent"
+[power - measurement]: https://github.com/TDHolmes/oven-temp-rs/raw/master/docs/images/power-measurement.jpeg "Measuring power consumption with the EEVBlog's uCurrent"
 [power - standby]: https://github.com/TDHolmes/oven-temp-rs/raw/master/docs/images/sleeping-timer-rtc.png "Power measurements after implementing standby sleeping. The spike is an LED blinking"
