@@ -11,8 +11,10 @@ keywords = ["feather_m0", "embedded", "thermocouple", "AD8495", "HT16K33"]
 categories = ["No standard library"]
 
 [dependencies]
-feather_m0 = {features = ["unproven"], git = "https://github.com/atsamd-rs/atsamd"}
 embedded-hal = "0.2"
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+feather_m0 = {features = ["unproven"], git = "https://github.com/atsamd-rs/atsamd"}
 cortex-m = "0.6.4"
 cortex-m-rt = "0.6"  # for interrupts
 panic-semihosting = {version = "0.5"}

@@ -9,3 +9,11 @@ pub mod oventemp;
 #[cfg(feature = "usbserial")]
 pub mod usbserial;
 pub mod battery;
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn testy_test() {
+
+    }
+}
