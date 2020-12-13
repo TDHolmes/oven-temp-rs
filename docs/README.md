@@ -20,30 +20,30 @@ in [rust].
 ## Initial Implementation
 
 My first cut at this was simple: port all of the basic functionality over from the C-based
-version of the project to rust. This was relatively easy given how relatively mature embedded
-rust is, especially for these simple projects. Since I'm using a feather M0 board, I used the
-wonderful [atsamd-rs] HAL crates. This is a great and welcoming codebase that is constantly improving,
-and it had all of the basic features I needed to get this project functional. I also took the oportunity
-to write my own driver for my alphanumeric display, which I based off of the Adafruit C++ library,
-with some tweaks for power I'll get into later on.
+version of the project to rust. This was relatively easy given how far along the embedded
+rust ecosystem is, especially for these simple projects. Since I'm using a feather M0 board, I used the
+wonderful [atsamd-rs] HAL crates. This is a great and welcoming codebase tha also had all of the basic
+features I needed to get this project functional. I also took the oportunity to write my own driver for
+my alphanumeric display, which I based off of the Adafruit C++ library, with some tweaks for power
+I'll get into later on.
 
 ## Power Optimizations
 
 I had a functional project up and running quickly, but it definitely wasn't going to work as the
 final project. The timer APIs as existed at the time had no capability for interrupt-based
 operation, so sleeping the core for power savings wasn't easy. Because of this limitation, I
-[opened a PR](https://github.com/atsamd-rs/atsamd/pull/205) for this functionality to enable this,
-saving 6 mA of current consumption, and I didn't have to worry about memory saftey since rust didn't
+[opened a PR](https://github.com/atsamd-rs/atsamd/pull/205) for this functionality,
+saving 6 mA of current consumption, and I didn't have to worry about interrupt memory saftey since rust didn't
 allow me to (easily) do anything unsafe.
 
 ![alt text][power - measurement]
 ![alt text][power - overall]
 ![alt text][power - wfi]
 
-This changed allowed simple sleeping of the core without powering down much else. A lot more could be
+This change allowed simple sleeping of the core without powering down much else. A lot more could be
 gained by configuring the power management peripheral to sleep more of the cores busses. I implemented
-these changes in [this PR](https://github.com/atsamd-rs/atsamd/pull/291), which moved our current consumption
-apart from the dispaly go from ~870 uA to ~250 uA.
+these changes in [this PR](https://github.com/atsamd-rs/atsamd/pull/291), which reduced our current consumption
+(apart from the display) from ~870 uA to ~250 uA.
 
 ![alt text][power - standby]
 
