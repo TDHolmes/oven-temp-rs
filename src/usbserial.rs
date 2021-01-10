@@ -1,8 +1,6 @@
 //! Optional debug serial communication over USB.
 
 extern crate feather_m0 as hal;
-use usb_device;
-use usbd_serial;
 
 use cortex_m::peripheral::NVIC;
 use hal::clock::GenericClockController;
@@ -91,11 +89,12 @@ impl USBSerial {
     /// # Returns
     /// Number of bytes read
     fn poll_usb(read_buffer: &mut [u8]) -> usize {
+        let mut bytes_read = 0;
         unsafe {
-            USB_SERIAL.as_mut().map(|usbserial| {
+            if let Some(usbserial) = USB_SERIAL.as_mut() {
                 usbserial.usb_bus.poll(&mut [&mut usbserial.usb_serial]);
 
-                if let Ok(_bytes_read) = usbserial.usb_serial.read(read_buffer) {
+                if let Ok(bytes_read) = usbserial.usb_serial.read(read_buffer) {
                     // We can panic if we write in interrupt & main context! No need to echo chars, so don't write here
                     // usbserial
                     //     .usb_serial
@@ -103,9 +102,9 @@ impl USBSerial {
                     //     .unwrap();
                     // return bytes_read;
                 }
-            });
+            }
         }
-        0
+        bytes_read
     }
 }
 
