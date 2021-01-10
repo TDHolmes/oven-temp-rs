@@ -89,12 +89,13 @@ impl USBSerial {
     /// # Returns
     /// Number of bytes read
     fn poll_usb(read_buffer: &mut [u8]) -> usize {
-        let mut bytes_read = 0;
+        let mut total_bytes_read = 0;
         unsafe {
             if let Some(usbserial) = USB_SERIAL.as_mut() {
                 usbserial.usb_bus.poll(&mut [&mut usbserial.usb_serial]);
 
                 if let Ok(bytes_read) = usbserial.usb_serial.read(read_buffer) {
+                    total_bytes_read = bytes_read;
                     // We can panic if we write in interrupt & main context! No need to echo chars, so don't write here
                     // usbserial
                     //     .usb_serial
@@ -104,7 +105,7 @@ impl USBSerial {
                 }
             }
         }
-        bytes_read
+        total_bytes_read
     }
 }
 
