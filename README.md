@@ -44,7 +44,7 @@ additional terms or conditions.
 [quad alphanumeric display]: https://www.adafruit.com/product/3127
 [thermocouple amplifier]: https://www.adafruit.com/product/1778
 [rust]: https://rust-lang.org
-[oven-temp-board]: https://github.com/TDHolmes/oven-temp-rs/raw/master/docs/images/oven-temp-off.jpeg
-[schematic]: https://github.com/TDHolmes/oven-temp-rs/raw/master/docs/images/schematic.png
+[oven-temp-board]: https://github.com/TDHolmes/oven-temp-rs/raw/main/docs/images/oven-temp-off.jpeg
+[schematic]: https://github.com/TDHolmes/oven-temp-rs/raw/main/docs/images/schematic.png
 [HF2 bootloader]: https://github.com/jacobrosenthal/hf2-rs/tree/master/hf2
 [cargo-hf2]: https://crates.io/crates/cargo-hf2
