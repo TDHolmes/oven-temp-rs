@@ -29,14 +29,15 @@ use oven_temp_rs::{
     oventemp::{OvenTemp, OvenTempState},
 };
 
+use bsp::entry;
+use bsp::{hal, pac};
 use core::sync::atomic;
 use cortex_m::peripheral::NVIC;
-use feather_m0 as hal;
+use feather_m0 as bsp;
 use hal::adc::Adc;
 use hal::clock::{enable_internal_32kosc, ClockGenId, ClockSource, GenericClockController};
-use hal::entry;
-use hal::pac::{adc, interrupt, CorePeripherals, Peripherals, TC4};
 use hal::prelude::*;
+use pac::{adc, interrupt, CorePeripherals, Peripherals, TC4};
 
 #[cfg(not(feature = "usbserial"))]
 macro_rules! serial_write {
@@ -53,7 +54,7 @@ fn main() -> ! {
     #[allow(unused_mut)] // Only used when usbserial is enabled
     let mut core = CorePeripherals::take().unwrap();
     let mut peripherals = Peripherals::take().unwrap();
-    let mut pins = hal::Pins::new(peripherals.PORT);
+    let pins = bsp::Pins::new(peripherals.PORT);
 
     // just 8 MHz for lower power consumption
     #[cfg(not(feature = "usbserial"))]
@@ -83,21 +84,19 @@ fn main() -> ! {
             &mut clocks,
             pins.usb_dm,
             pins.usb_dp,
-            &mut pins.port,
         );
     }
 
-    let mut i2c = hal::i2c_master(
+    let mut i2c = bsp::i2c_master(
         &mut clocks,
         400.khz(),
         peripherals.SERCOM3,
         &mut peripherals.PM,
         pins.sda,
         pins.scl,
-        &mut pins.port,
     );
 
-    let mut red_led = pins.d13.into_open_drain_output(&mut pins.port);
+    let mut red_led = pins.d13.into_push_pull_output();
     red_led.set_high().unwrap();
 
     #[cfg(feature = "sleeping-delay")]
@@ -154,10 +153,10 @@ fn main() -> ! {
     adc.gain(adc::inputctrl::GAIN_A::DIV2);
     adc.reference(adc::refctrl::REFSEL_A::INTVCC1);
     adc.samples(adc::avgctrl::SAMPLENUM_A::_32);
-    let mut therm_out = pins.a4.into_function_b(&mut pins.port);
+    let mut therm_out = pins.a4.into_alternate::<hal::gpio::B>();
 
     // check the battery voltage (external HW divides the reading by two)
-    let mut batt_in_div_2 = pins.d9.into_function_b(&mut pins.port);
+    let mut batt_in_div_2 = pins.d9.into_alternate::<hal::gpio::B>();
 
     red_led.set_low().unwrap();
 
@@ -316,7 +315,7 @@ where
 /// * `delay`: The `Delay` instance to wait
 fn error<PIN, T>(red_led: &mut PIN, delay: &mut T)
 where
-    PIN: embedded_hal::digital::v2::OutputPin<Error = ()>,
+    PIN: embedded_hal::digital::v2::OutputPin<Error = core::convert::Infallible>,
     T: embedded_hal::blocking::delay::DelayMs<u32>,
 {
     const SHORT_BLIP_MS: u32 = 250;

@@ -1,10 +1,10 @@
 //! Optional debug serial communication over USB.
 
-extern crate feather_m0 as hal;
+extern crate feather_m0 as bsp;
 
+use bsp::hal;
 use cortex_m::peripheral::NVIC;
 use hal::clock::GenericClockController;
-use hal::gpio::{Floating, Input, Port};
 use hal::pac::{interrupt, PM, USB};
 use hal::usb::UsbBus;
 use usb_device::bus::UsbBusAllocator;
@@ -35,14 +35,11 @@ impl USBSerial {
         usb_perph: USB,
         nvic: &mut hal::pac::NVIC,
         clocks: &mut GenericClockController,
-        dm: hal::gpio::Pa24<Input<Floating>>,
-        dp: hal::gpio::Pa25<Input<Floating>>,
-        port: &mut Port,
+        dm: impl Into<bsp::UsbDm>,
+        dp: impl Into<bsp::UsbDp>,
     ) {
         let bus_allocator = unsafe {
-            BUS_ALLOCATOR = Some(hal::usb_allocator(
-                usb_perph, clocks, pm_perph, dm, dp, port,
-            ));
+            BUS_ALLOCATOR = Some(bsp::usb_allocator(usb_perph, clocks, pm_perph, dm, dp));
             BUS_ALLOCATOR.as_ref().unwrap()
         };
 
