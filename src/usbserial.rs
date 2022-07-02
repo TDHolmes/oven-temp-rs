@@ -123,12 +123,11 @@ macro_rules! serial_write {
     ($($tt:tt)*) => {{
         #[cfg(feature = "usbserial")]
         {
-            use heapless::consts::*;
             use heapless::String;
             use ufmt::uwrite;
             use usbserial::USBSerial;
 
-            let mut s: String<U63> = String::new();
+            let mut s: String<64> = String::new();
             uwrite!(
                 ufmt_utils::WriteAdapter(&mut s), $($tt)*
             )
