@@ -23,8 +23,8 @@ impl USBSerial {
     /// Initializes the `USBSerial` singleton.
     ///
     /// # Arguments
-    ///  * pm_perph: The power management peripheral
-    ///  * usb_perph: The USB peripheral
+    ///  * `pm_perph`: The power management peripheral
+    ///  * `usb_perph`: The USB peripheral
     ///  * core: The `CorePeripheral` instance for NVIC modifications
     ///  * clocks: The clocks instance for USB peripheral clocking
     ///  * dm: The d- GPIO pad
@@ -48,7 +48,7 @@ impl USBSerial {
 
         unsafe {
             // Initialize our USBSerial singlton
-            USB_SERIAL = Some(USBSerial {
+            USB_SERIAL = Some(Self {
                 usb_serial: SerialPort::new(bus_allocator), /* This must initialize first! */
                 usb_bus: UsbDeviceBuilder::new(bus_allocator, UsbVidPid(0x16c0, 0x27dd))
                     .manufacturer("Fake company")
@@ -74,17 +74,19 @@ impl USBSerial {
     pub fn write_to_usb(message: &str) -> usize {
         let message_bytes = message.as_bytes();
         unsafe {
-            match USB_SERIAL.as_mut().unwrap().usb_serial.write(message_bytes) {
-                Ok(count) => count,
-                Err(_) => 0,
-            }
+            USB_SERIAL
+                .as_mut()
+                .unwrap()
+                .usb_serial
+                .write(message_bytes)
+                .unwrap_or(0)
         }
     }
 
     /// Polls the USB peripheral, reading out whatever bytes are available
     ///
     /// # Arguments
-    /// * read_buffer: The buffer we should read the bytes into
+    /// * `read_buffer`: The buffer we should read the bytes into
     ///
     /// # Returns
     /// Number of bytes read

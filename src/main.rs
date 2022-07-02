@@ -25,9 +25,8 @@ use oven_temp_rs::serial_write;
 #[cfg(feature = "usbserial")]
 use oven_temp_rs::usbserial;
 use oven_temp_rs::{
-    ht16k33,
+    battery, ht16k33,
     oventemp::{OvenTemp, OvenTempState},
-    battery
 };
 
 use core::sync::atomic;
@@ -284,7 +283,7 @@ where
     I2C: embedded_hal::blocking::i2c::Write<Error = CommE>,
 {
     display.clear();
-    if temp_f >= 10. && temp_f < 100. {
+    if (10. ..100.).contains(&temp_f) {
         let tens_place: u8 = (temp_f / 10.) as u8;
         let ones_place: u8 = (temp_f % 10.) as u8;
         let tenths_place: u8 = ((temp_f * 10.) % 10.) as u8;
@@ -293,7 +292,7 @@ where
         display.write_digit_value(1, ones_place, true);
         display.write_digit_value(2, tenths_place, false);
         display.write_digit_value(3, hundredths_place, false);
-    } else if temp_f >= 100. && temp_f < 600. {
+    } else if (100. ..600.).contains(&temp_f) {
         let hundreds_place: u8 = (temp_f / 100.) as u8;
         let tens_place: u8 = ((temp_f / 10.) % 10.) as u8;
         let ones_place: u8 = (temp_f % 10.) as u8;
