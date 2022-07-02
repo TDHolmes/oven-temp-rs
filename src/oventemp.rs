@@ -26,7 +26,8 @@ pub struct OvenTemp {
 }
 
 impl OvenTemp {
-    /// Creates a new OvenTemp object
+    /// Creates a new `OvenTemp` object
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             state: OvenTempState::AtTemp,

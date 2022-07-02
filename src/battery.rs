@@ -25,6 +25,7 @@ const BATTERY_VOLTAGE: [f32; 20] = [
 ];
 
 /// Converts the given battery voltage to an estimated battery percentage
+#[must_use]
 pub fn voltage_to_percentage(voltage: f32) -> usize {
     let mut percentage: usize = 100;
     for lut_voltage in &BATTERY_VOLTAGE {

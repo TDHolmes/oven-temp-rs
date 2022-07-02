@@ -14,15 +14,15 @@ categories = ["No standard library"]
 embedded-hal = "0.2"
 
 [target.'cfg(target_arch = "arm")'.dependencies]
-feather_m0 = {features = ["unproven"], git = "https://github.com/atsamd-rs/atsamd"}
-cortex-m = "0.6.4"
-cortex-m-rt = "0.6"  # for interrupts
-panic-semihosting = {version = "0.5"}
+feather_m0 = {version = "0.12", features = ["unproven"]}
+cortex-m = "0.7"
+cortex-m-rt = "0.7"  # for interrupts
+panic-semihosting = {version = "0.6"}
 
 # dependencies for usb serial printing
 usb-device = {version = "0.2", optional = true}
 usbd-serial = {version = "0.1", optional = true}
-heapless = {version = "0.5", optional = true}
+heapless = {version = "0.7", optional = true}
 ufmt = {version = "0.1", optional = true}
 ufmt-utils = {version = "0.1", optional = true}
 
